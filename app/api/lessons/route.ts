@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createLesson, getLessons, updateLesson } from '@/lib/supabase/queries';
 import { generateLesson } from '@/lib/ai/claude';
 import { validateTypeScriptCode } from '@/lib/ai/validator';
+import { flushTraces } from '@/lib/tracing/langfuse';
 
 /**
  * GET /api/lessons
@@ -59,8 +60,8 @@ export async function POST(request: NextRequest) {
       try {
         console.log(`Generating lesson (attempt ${retryCount + 1}/${maxRetries})...`);
 
-        // Call Claude AI
-        const result = await generateLesson(outline);
+        // Call Claude AI with tracing
+        const result = await generateLesson(outline, lesson.id);
 
         // Validate the generated code
         const validation = validateTypeScriptCode(result.code);
@@ -79,6 +80,7 @@ export async function POST(request: NextRequest) {
                 completion_tokens: result.usage.output_tokens,
                 generation_time_ms: generationTime,
                 retry_count: retryCount,
+                trace_id: result.traceId,
               },
             },
             true
@@ -87,6 +89,7 @@ export async function POST(request: NextRequest) {
           generatedCode = validation.code;
 
           console.log(`✅ Lesson generated successfully in ${generationTime}ms`);
+          console.log(`📊 Langfuse Trace ID: ${result.traceId}`);
         } else {
           // Validation failed
           console.warn('Validation failed:', validation.errors);
@@ -125,6 +128,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Flush traces to Langfuse before responding
+    await flushTraces();
+
     return NextResponse.json(
       {
         lesson: {
@@ -137,6 +143,10 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error('Error in lesson generation:', error);
+
+    // Flush traces even on error
+    await flushTraces();
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to generate lesson' },
       { status: 500 }
