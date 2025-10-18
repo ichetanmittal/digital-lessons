@@ -14,9 +14,6 @@ export default async function Home() {
           <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-3">
             Digital Lessons
           </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-400">
-            Generate interactive TypeScript lessons powered by AI
-          </p>
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
