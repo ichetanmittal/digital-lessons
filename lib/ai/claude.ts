@@ -28,15 +28,19 @@ export interface GenerationResult {
 export async function generateLesson(outline: string, lessonId?: string): Promise<GenerationResult> {
   const langfuse = getLangfuse();
 
-  // Create a trace for this generation
+  // Create a trace for this generation (production pattern)
   const trace = langfuse.trace({
     name: 'lesson-generation',
     userId: 'system',
+    input: {
+      outline,
+      lessonId,
+    },
     metadata: {
       lessonId,
-      outline,
+      requestType: 'lesson-generation',
     },
-    tags: ['claude', 'lesson-generation'],
+    tags: ['claude', 'lesson-generation', 'education'],
   });
 
   const prompt = createLessonPrompt(outline);
@@ -91,6 +95,21 @@ export async function generateLesson(outline: string, lessonId?: string): Promis
       statusMessage: 'success',
     });
 
+    // Update trace with final result (production pattern)
+    trace.update({
+      output: {
+        success: true,
+        lessonId,
+        codeLength: code.length,
+        model: message.model,
+      },
+      metadata: {
+        totalTokens: message.usage.input_tokens + message.usage.output_tokens,
+        inputTokens: message.usage.input_tokens,
+        outputTokens: message.usage.output_tokens,
+      },
+    });
+
     return {
       code,
       usage: {
@@ -105,6 +124,17 @@ export async function generateLesson(outline: string, lessonId?: string): Promis
     generation.end({
       statusMessage: 'error',
       level: 'ERROR',
+    });
+
+    // Update trace with error (production pattern)
+    trace.update({
+      output: {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+      metadata: {
+        errorType: error instanceof Error ? error.constructor.name : 'UnknownError',
+      },
     });
 
     throw error;
