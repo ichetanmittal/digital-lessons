@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { Button } from '@/components/ui/button';
 import type { Lesson } from '@/lib/types';
 
 interface LessonsTableProps {
@@ -11,6 +12,7 @@ interface LessonsTableProps {
 
 export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
   const [lessons, setLessons] = useState<Lesson[]>(initialLessons);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const router = useRouter();
   const supabase = createClient();
 
@@ -79,6 +81,34 @@ export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
     }
   };
 
+  const handleDelete = async (e: React.MouseEvent, lessonId: string) => {
+    e.stopPropagation(); // Prevent row click
+
+    if (!confirm('Are you sure you want to delete this lesson?')) {
+      return;
+    }
+
+    setDeletingId(lessonId);
+
+    try {
+      const response = await fetch(`/api/lessons/${lessonId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete lesson');
+      }
+
+      // Optimistically remove from UI (real-time will handle it too)
+      setLessons((prev) => prev.filter((l) => l.id !== lessonId));
+    } catch (error) {
+      console.error('Error deleting lesson:', error);
+      alert('Failed to delete lesson. Please try again.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(
@@ -120,6 +150,12 @@ export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
             >
               Created
             </th>
+            <th
+              scope="col"
+              className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+            >
+              Actions
+            </th>
           </tr>
         </thead>
         <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
@@ -146,6 +182,16 @@ export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                 {formatDate(lesson.created_at)}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={(e) => handleDelete(e, lesson.id)}
+                  disabled={deletingId === lesson.id}
+                >
+                  {deletingId === lesson.id ? 'Deleting...' : 'Delete'}
+                </Button>
               </td>
             </tr>
           ))}
