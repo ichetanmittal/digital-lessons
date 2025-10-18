@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { getLessonById } from '@/lib/supabase/queries';
 import { LessonRenderer } from '@/components/lesson-renderer';
 
@@ -39,12 +40,12 @@ export default async function LessonPage({ params }: PageProps) {
             <p className="text-gray-600 dark:text-gray-400 mb-4">
               {lesson.error_message || 'An error occurred while generating this lesson.'}
             </p>
-            <a
+            <Link
               href="/"
               className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               Back to Home
-            </a>
+            </Link>
           </div>
         </div>
       );
