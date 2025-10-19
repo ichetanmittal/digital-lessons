@@ -24,8 +24,13 @@ export interface GenerationResult {
  * Generate a TypeScript React component from a lesson outline using Claude
  * @param outline - The lesson outline from the user
  * @param lessonId - The lesson ID for tracing
+ * @param images - Optional AI-generated images to include in the lesson
  */
-export async function generateLesson(outline: string, lessonId?: string): Promise<GenerationResult> {
+export async function generateLesson(
+  outline: string,
+  lessonId?: string,
+  images?: Array<{ url: string; prompt: string; provider: string }>
+): Promise<GenerationResult> {
   const langfuse = getLangfuse();
 
   // Create a trace for this generation (production pattern)
@@ -43,7 +48,7 @@ export async function generateLesson(outline: string, lessonId?: string): Promis
     tags: ['claude', 'lesson-generation', 'education'],
   });
 
-  const prompt = createLessonPrompt(outline);
+  const prompt = createLessonPrompt(outline, images);
 
   // Start generation span
   const generation = trace.generation({

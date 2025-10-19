@@ -7,6 +7,7 @@ export function LessonForm() {
   const [outline, setOutline] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [generateImages, setGenerateImages] = useState(true);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +31,10 @@ export function LessonForm() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ outline: outline.trim() }),
+        body: JSON.stringify({
+          outline: outline.trim(),
+          generateImages
+        }),
       });
 
       const data = await response.json();
@@ -70,6 +74,23 @@ export function LessonForm() {
         )}
       </div>
 
+      <div className="flex items-center space-x-2 mb-4">
+        <input
+          type="checkbox"
+          id="generateImages"
+          checked={generateImages}
+          onChange={(e) => setGenerateImages(e.target.checked)}
+          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+          disabled={isLoading}
+        />
+        <label
+          htmlFor="generateImages"
+          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+        >
+          Generate AI images for this lesson (uses OpenAI DALL-E if configured)
+        </label>
+      </div>
+
       <Button
         type="submit"
         disabled={isLoading || !outline.trim()}
@@ -86,7 +107,8 @@ export function LessonForm() {
           <li>• A 10 question pop quiz on Florida</li>
           <li>• A one-pager on how to divide with long division</li>
           <li>• An explanation of how the Cartesian Grid works with examples</li>
-          <li>• A test on counting numbers from 1 to 100</li>
+          <li>• A quiz about African animals with pictures and diagrams</li>
+          <li>• An interactive lesson on the solar system with planets</li>
         </ul>
       </div>
     </form>

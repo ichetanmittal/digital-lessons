@@ -8,6 +8,11 @@ export interface LessonMetadata {
   generation_time_ms?: number;
   trace_id?: string;
   retry_count?: number;
+  generated_images?: Array<{
+    url: string;
+    provider: string;
+    prompt: string;
+  }>;
 }
 
 export interface Lesson {

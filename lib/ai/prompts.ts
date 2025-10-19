@@ -2,11 +2,31 @@
  * Prompt templates for AI lesson generation
  */
 
-export function createLessonPrompt(outline: string): string {
+export function createLessonPrompt(
+  outline: string,
+  images?: Array<{ url: string; prompt: string; provider: string }>
+): string {
+  const imageSection = images && images.length > 0
+    ? `
+
+AVAILABLE AI-GENERATED IMAGES:
+You have access to the following AI-generated images that you can use in your lesson:
+${images.map((img, idx) => `
+Image ${idx + 1}:
+- URL: ${img.url}
+- Description: ${img.prompt}
+- Usage: <img src="${img.url}" alt="${img.prompt}" className="w-full max-w-md mx-auto rounded-lg shadow-lg" />
+`).join('\n')}
+
+IMPORTANT: Include these images in appropriate places in your lesson to make it more engaging and visual.
+`
+    : '';
+
   return `You are an expert educational content creator and TypeScript/React developer specialized in creating interactive lessons for students.
 
 Generate a complete, self-contained React component for the following lesson:
 "${outline}"
+${imageSection}
 
 CRITICAL REQUIREMENTS:
 1. Output ONLY valid TypeScript/React code - no markdown, no explanations, no code fences
@@ -27,6 +47,17 @@ STYLE GUIDELINES:
 - Interactive elements with clear hover states
 - Encouraging feedback messages ("Great job!", "Keep trying!", etc.)
 
+VISUAL ELEMENTS (IMPORTANT):
+- Use inline SVG graphics to illustrate concepts (shapes, diagrams, icons, charts)
+- SVGs should be colorful, simple, and educational
+- Example SVG patterns you can use:
+  * Geometric shapes for math lessons
+  * Charts and graphs for data visualization
+  * Icons and illustrations for science/history
+  * Arrows, lines, and connectors for flow diagrams
+- Always use responsive SVG sizing (w-full, max-w-sm, etc.)
+- Animate SVGs with Tailwind classes when appropriate (animate-bounce, animate-pulse)
+
 CODE STRUCTURE:
 - Use TypeScript with proper type annotations
 - Component manages its own state
@@ -46,6 +77,12 @@ export default function GeneratedLesson() {
       <h1 className="text-4xl font-bold text-blue-600 mb-6">
         {/* Lesson Title */}
       </h1>
+
+      {/* Example: Using inline SVG for visual elements */}
+      <svg className="w-32 h-32 mx-auto mb-4" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="40" fill="#3B82F6" />
+      </svg>
+
       {/* Interactive content */}
     </div>
   );

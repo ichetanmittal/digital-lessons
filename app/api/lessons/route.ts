@@ -26,7 +26,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { outline } = body;
+    const { outline, generateImages = true } = body;
 
     // Validation
     if (!outline || typeof outline !== 'string') {
@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
       data: {
         lessonId: lesson.id,
         outline: outline,
+        generateImages: generateImages,
       },
     });
 
