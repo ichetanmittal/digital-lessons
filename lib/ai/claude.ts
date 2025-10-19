@@ -48,7 +48,7 @@ export async function generateLesson(outline: string, lessonId?: string): Promis
   // Start generation span
   const generation = trace.generation({
     name: 'claude-generate-lesson',
-    model: 'claude-3-5-sonnet-20241022',
+    model: 'claude-sonnet-4-20250514',
     modelParameters: {
       maxTokens: 8192,
       temperature: 0.7,
@@ -58,7 +58,7 @@ export async function generateLesson(outline: string, lessonId?: string): Promis
 
   try {
     const message = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-sonnet-4-20250514',
       max_tokens: 8192,
       temperature: 0.7,
       messages: [
