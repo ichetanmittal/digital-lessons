@@ -20,6 +20,7 @@
     "@trigger.dev/nextjs": "^3.3.12",
     "@trigger.dev/sdk": "^4.0.4",
     "@vercel/analytics": "^1.5.0",
+    "@vercel/speed-insights": "^1.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "inngest": "^3.44.3",
