@@ -2,6 +2,9 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
 
 export function LessonForm() {
   const [outline, setOutline] = useState('');
@@ -40,8 +43,15 @@ export function LessonForm() {
       }
 
       setOutline('');
+      toast.success('Lesson generation started!', {
+        description: 'Your lesson is being generated. This may take a few moments.',
+      });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create lesson');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create lesson';
+      setError(errorMessage);
+      toast.error('Failed to create lesson', {
+        description: errorMessage,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -49,24 +59,21 @@ export function LessonForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label
-          htmlFor="outline"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-        >
+      <div className="space-y-2">
+        <Label htmlFor="outline">
           Lesson Outline
-        </label>
-        <textarea
+        </Label>
+        <Textarea
           id="outline"
           value={outline}
           onChange={(e) => setOutline(e.target.value)}
           placeholder='e.g., "A 10 question pop quiz on Florida" or "A one-pager on how to divide with long division"'
-          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
           rows={4}
           disabled={isLoading}
+          className="resize-none"
         />
         {error && (
-          <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>
+          <p className="text-sm text-destructive">{error}</p>
         )}
       </div>
 
