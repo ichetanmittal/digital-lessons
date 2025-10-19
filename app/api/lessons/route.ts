@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createLesson, getLessons } from '@/lib/supabase/queries';
+import { createLesson, getLessons, updateLesson } from '@/lib/supabase/queries';
 import { inngest } from '@/inngest/client';
+import { checkInngestHealth } from '@/lib/inngest-check';
 
 /**
  * GET /api/lessons
@@ -43,30 +44,60 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Step 1: Create lesson record with 'generating' status
+    // Step 1: Check if Inngest is running
+    const isInngestHealthy = await checkInngestHealth();
+
+    if (!isInngestHealthy) {
+      console.warn('⚠️  Inngest dev server is not running. Please start it with: bunx inngest-cli@latest dev');
+    }
+
+    // Step 2: Create lesson record with 'generating' status
     const lesson = await createLesson({ outline }, true);
 
-    // Step 2: Send event to Inngest for background processing
-    await inngest.send({
-      name: "lesson/generate",
-      data: {
-        lessonId: lesson.id,
-        outline: outline,
-      },
-    });
-
-    console.log(`🚀 Triggered Inngest background job for lesson: ${lesson.id}`);
-
-    return NextResponse.json(
-      {
-        lesson: {
-          id: lesson.id,
-          status: 'generating',
-          message: 'Lesson generation started',
+    // Step 3: Send event to Inngest for background processing
+    try {
+      await inngest.send({
+        name: "lesson/generate",
+        data: {
+          lessonId: lesson.id,
+          outline: outline,
         },
-      },
-      { status: 201 }
-    );
+      });
+
+      console.log(`🚀 Triggered Inngest background job for lesson: ${lesson.id}`);
+
+      return NextResponse.json(
+        {
+          lesson: {
+            id: lesson.id,
+            status: 'generating',
+            message: 'Lesson generation started',
+          },
+          warning: !isInngestHealthy ? 'Inngest dev server is not running. The lesson will remain in "generating" status until Inngest processes it.' : undefined,
+        },
+        { status: 201 }
+      );
+    } catch (inngestError) {
+      // If Inngest send fails, update lesson to failed status
+      console.error('Failed to send event to Inngest:', inngestError);
+
+      await updateLesson(
+        lesson.id,
+        {
+          status: 'failed',
+          error_message: 'Inngest service is not available. Please ensure Inngest dev server is running.',
+        },
+        true
+      );
+
+      return NextResponse.json(
+        {
+          error: 'Inngest service is not available',
+          message: 'Please start the Inngest dev server with: bunx inngest-cli@latest dev',
+        },
+        { status: 503 }
+      );
+    }
   } catch (error) {
     console.error('Error creating lesson:', error);
 

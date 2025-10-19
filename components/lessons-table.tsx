@@ -4,6 +4,16 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { toast } from 'sonner';
 import type { Lesson } from '@/lib/types';
 
 interface LessonsTableProps {
@@ -13,6 +23,8 @@ interface LessonsTableProps {
 export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
   const [lessons, setLessons] = useState<Lesson[]>(initialLessons);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [lessonToDelete, setLessonToDelete] = useState<Lesson | null>(null);
   const router = useRouter();
   const supabase = createClient();
 
@@ -53,10 +65,10 @@ export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
   }, [supabase]);
 
   const getStatusBadge = (status: Lesson['status']) => {
-    const styles = {
-      generating: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-      generated: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-      failed: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+    const variants = {
+      generating: 'default' as const,
+      generated: 'default' as const,
+      failed: 'destructive' as const,
     };
 
     const icons = {
@@ -65,13 +77,17 @@ export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
       failed: '✗',
     };
 
+    const colors = {
+      generating: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100 dark:bg-yellow-900 dark:text-yellow-200',
+      generated: 'bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-200',
+      failed: '',
+    };
+
     return (
-      <span
-        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${styles[status]}`}
-      >
+      <Badge variant={variants[status]} className={status !== 'failed' ? colors[status] : ''}>
         <span className="mr-1">{icons[status]}</span>
         {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
+      </Badge>
     );
   };
 
@@ -81,17 +97,19 @@ export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
     }
   };
 
-  const handleDelete = async (e: React.MouseEvent, lessonId: string) => {
+  const handleDeleteClick = (e: React.MouseEvent, lesson: Lesson) => {
     e.stopPropagation(); // Prevent row click
+    setLessonToDelete(lesson);
+    setDeleteDialogOpen(true);
+  };
 
-    if (!confirm('Are you sure you want to delete this lesson?')) {
-      return;
-    }
+  const handleDeleteConfirm = async () => {
+    if (!lessonToDelete) return;
 
-    setDeletingId(lessonId);
+    setDeletingId(lessonToDelete.id);
 
     try {
-      const response = await fetch(`/api/lessons/${lessonId}`, {
+      const response = await fetch(`/api/lessons/${lessonToDelete.id}`, {
         method: 'DELETE',
       });
 
@@ -100,12 +118,17 @@ export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
       }
 
       // Optimistically remove from UI (real-time will handle it too)
-      setLessons((prev) => prev.filter((l) => l.id !== lessonId));
+      setLessons((prev) => prev.filter((l) => l.id !== lessonToDelete.id));
+      setDeleteDialogOpen(false);
+      toast.success('Lesson deleted successfully');
     } catch (error) {
       console.error('Error deleting lesson:', error);
-      alert('Failed to delete lesson. Please try again.');
+      toast.error('Failed to delete lesson', {
+        description: 'Please try again.',
+      });
     } finally {
       setDeletingId(null);
+      setLessonToDelete(null);
     }
   };
 
@@ -187,7 +210,7 @@ export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={(e) => handleDelete(e, lesson.id)}
+                  onClick={(e) => handleDeleteClick(e, lesson)}
                   disabled={deletingId === lesson.id}
                 >
                   {deletingId === lesson.id ? 'Deleting...' : 'Delete'}
@@ -197,6 +220,33 @@ export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
           ))}
         </tbody>
       </table>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Lesson</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete &ldquo;{lessonToDelete?.title}&rdquo;? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={deletingId !== null}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              disabled={deletingId !== null}
+            >
+              {deletingId ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
