@@ -37,6 +37,7 @@ export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [lessonToDelete, setLessonToDelete] = useState<Lesson | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -53,7 +54,26 @@ export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
   }, [currentPage, totalPages]);
 
   useEffect(() => {
-    // Subscribe to real-time changes
+    const fetchLessons = async () => {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('lessons')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!error && data) {
+          setLessons(data as Lesson[]);
+        }
+      } catch (error) {
+        console.error('Error fetching lessons:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchLessons();
+
     const channel = supabase
       .channel('lessons-changes')
       .on(
@@ -191,6 +211,15 @@ export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
       year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
     });
   };
+
+  if (isLoading && lessons.length === 0) {
+    return (
+      <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg">
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100"></div>
+        <p className="text-gray-500 dark:text-gray-400 mt-4">Loading lessons...</p>
+      </div>
+    );
+  }
 
   if (lessons.length === 0) {
     return (
