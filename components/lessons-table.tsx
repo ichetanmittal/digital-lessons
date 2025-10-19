@@ -226,7 +226,7 @@ export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
           <DialogHeader>
             <DialogTitle>Delete Lesson</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete "{lessonToDelete?.title}"? This action cannot be undone.
+              Are you sure you want to delete &ldquo;{lessonToDelete?.title}&rdquo;? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
