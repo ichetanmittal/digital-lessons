@@ -39,13 +39,30 @@ export function LessonForm() {
       const data = await response.json();
 
       if (!response.ok) {
+        // Handle Inngest not running error specifically
+        if (response.status === 503) {
+          setError(data.message || 'Inngest service not available');
+          toast.error('Inngest not running!', {
+            description: data.message || 'Please start Inngest dev server',
+            duration: 10000,
+          });
+          return;
+        }
         throw new Error(data.error || 'Failed to create lesson');
       }
 
       setOutline('');
-      toast.success('Lesson generation started!', {
-        description: 'Your lesson is being generated. This may take a few moments.',
-      });
+
+      if (data.warning) {
+        toast.warning('Inngest not running!', {
+          description: data.warning,
+          duration: 10000,
+        });
+      } else {
+        toast.success('Lesson generation started!', {
+          description: 'Your lesson is being generated. This may take a few moments.',
+        });
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create lesson';
       setError(errorMessage);
