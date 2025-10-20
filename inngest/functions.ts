@@ -1,10 +1,10 @@
 /**
- * Inngest function for generating lessons with Claude AI
+ * Inngest function for generating lessons with OpenAI GPT-5
  * This runs as a background job to avoid API route timeouts
  */
 
 import { inngest } from "./client";
-import { generateLesson, fixValidationErrors } from "@/lib/ai/claude";
+import { generateLesson, fixValidationErrors } from "@/lib/ai/openai";
 import { validateTypeScriptCode } from "@/lib/ai/validator";
 import { updateLesson } from "@/lib/supabase/queries";
 import { getLangfuse } from "@/lib/tracing/langfuse";
@@ -206,8 +206,8 @@ export const generateLessonFunction = inngest.createFunction(
         });
 
         // Score 7: Total Cost Estimate (rough estimate in dollars)
-        const inputCostPerMToken = 0.003; // $3 per 1M tokens for Sonnet
-        const outputCostPerMToken = 0.015; // $15 per 1M tokens for Sonnet
+        const inputCostPerMToken = 0.010; // $10 per 1M tokens for GPT-5 (check OpenAI pricing)
+        const outputCostPerMToken = 0.030; // $30 per 1M tokens for GPT-5 (check OpenAI pricing)
         const totalInputTokens = result.usage.input_tokens + (autoFixApplied ? fixResult.usage.input_tokens : 0);
         const totalOutputTokens = result.usage.output_tokens + (autoFixApplied ? fixResult.usage.output_tokens : 0);
         const estimatedCost = (totalInputTokens / 1000000 * inputCostPerMToken) +

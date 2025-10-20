@@ -1,13 +1,13 @@
 /**
  * LLM-as-a-Judge evaluation for generated lessons
- * Uses Claude to evaluate lesson quality on multiple dimensions
+ * Uses OpenAI GPT-4o to evaluate lesson quality on multiple dimensions
  */
 
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { getLangfuse } from '@/lib/tracing/langfuse';
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 export interface JudgeEvaluation {
@@ -104,40 +104,35 @@ export async function evaluateLessonWithJudge(
 
   // Start generation span
   const generation = trace.generation({
-    name: 'claude-judge-evaluation',
-    model: 'claude-sonnet-4-20250514',
+    name: 'openai-judge-evaluation',
+    model: 'gpt-5',
     modelParameters: {
-      maxTokens: 1024,
-      temperature: 0.2, // Low temperature for consistent evaluation
+      reasoning_effort: 'high', // high reasoning for accurate evaluation
+      text_verbosity: 'low',
     },
     input: prompt,
   });
 
   try {
-    const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
-      temperature: 0.2,
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
+    const result = await openai.responses.create({
+      model: 'gpt-5',
+      input: prompt,
+      reasoning: {
+        effort: 'high', // thorough evaluation
+      },
+      text: {
+        verbosity: 'low', // just return JSON
+      },
     });
 
-    const content = message.content[0];
-    if (content.type !== 'text') {
-      throw new Error('Unexpected response type from Claude judge');
+    const content = result.output_text;
+    if (!content) {
+      throw new Error('No content in OpenAI GPT-5 judge response');
     }
 
-    // Parse JSON response
-    const jsonMatch = content.text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('Could not parse JSON from judge response');
-    }
-
-    const evaluation = JSON.parse(jsonMatch[0]) as JudgeEvaluation;
+    // Parse JSON response (extract JSON if wrapped in text)
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    const evaluation = JSON.parse(jsonMatch ? jsonMatch[0] : content) as JudgeEvaluation;
 
     // Calculate overall score
     evaluation.overall_score = (
@@ -152,9 +147,9 @@ export async function evaluateLessonWithJudge(
     generation.end({
       output: evaluation,
       usage: {
-        input: message.usage.input_tokens,
-        output: message.usage.output_tokens,
-        total: message.usage.input_tokens + message.usage.output_tokens,
+        input: result.usage?.input_tokens || 0,
+        output: result.usage?.output_tokens || 0,
+        total: (result.usage?.input_tokens || 0) + (result.usage?.output_tokens || 0),
       },
       statusMessage: 'success',
     });
@@ -166,7 +161,7 @@ export async function evaluateLessonWithJudge(
         evaluation,
       },
       metadata: {
-        totalTokens: message.usage.input_tokens + message.usage.output_tokens,
+        totalTokens: (result.usage?.input_tokens || 0) + (result.usage?.output_tokens || 0),
         overallScore: evaluation.overall_score,
       },
     });
