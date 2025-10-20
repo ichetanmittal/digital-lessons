@@ -4,7 +4,7 @@
  */
 
 import { inngest } from "./client";
-import { generateLesson } from "@/lib/ai/claude";
+import { generateLesson, fixValidationErrors } from "@/lib/ai/claude";
 import { validateTypeScriptCode } from "@/lib/ai/validator";
 import { updateLesson } from "@/lib/supabase/queries";
 
@@ -46,10 +46,69 @@ export const generateLessonFunction = inngest.createFunction(
         return validateTypeScriptCode(result.code);
       });
 
-      if (!validation.isValid || !validation.code) {
-        const errorMessage = `Validation failed: ${validation.errors.join(", ")}`;
+      let finalCode = validation.code;
+      let autoFixApplied = false;
+      let fixResult = result;
 
-        // Mark as failed in database
+      // Step 2b: Auto-fix validation errors if present
+      if (!validation.isValid && validation.errors.length > 0) {
+        try {
+          const fixedResult = await step.run("auto-fix-validation-errors", async () => {
+            return await fixValidationErrors(result.code, validation.errors, lessonId);
+          });
+
+          // Re-validate the fixed code
+          const revalidation = await step.run("revalidate-fixed-code", async () => {
+            return validateTypeScriptCode(fixedResult.code);
+          });
+
+          if (revalidation.isValid && revalidation.code) {
+            // Auto-fix succeeded!
+            finalCode = revalidation.code;
+            autoFixApplied = true;
+            fixResult = fixedResult;
+          } else {
+            // Auto-fix failed, mark lesson as failed
+            const errorMessage = `Validation failed after auto-fix attempt: ${revalidation.errors.join(", ")}`;
+
+            await updateLesson(
+              lessonId,
+              {
+                status: "failed",
+                error_message: errorMessage,
+                metadata: {
+                  prompt_tokens: result.usage.input_tokens + fixedResult.usage.input_tokens,
+                  completion_tokens: result.usage.output_tokens + fixedResult.usage.output_tokens,
+                  trace_id: result.traceId,
+                  auto_fix_applied: false,
+                },
+              },
+              true
+            );
+
+            throw new Error(errorMessage);
+          }
+        } catch (error) {
+          // Auto-fix process failed entirely
+          const errorMessage = `Validation failed: ${validation.errors.join(", ")}. Auto-fix attempt failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+
+          await updateLesson(
+            lessonId,
+            {
+              status: "failed",
+              error_message: errorMessage,
+            },
+            true
+          );
+
+          throw new Error(errorMessage);
+        }
+      }
+
+      // Ensure we have valid code before proceeding
+      if (!finalCode) {
+        const errorMessage = "No valid code generated";
+
         await updateLesson(
           lessonId,
           {
@@ -68,11 +127,12 @@ export const generateLessonFunction = inngest.createFunction(
           lessonId,
           {
             status: "generated",
-            generated_code: validation.code!,
+            generated_code: finalCode!,
             metadata: {
-              prompt_tokens: result.usage.input_tokens,
-              completion_tokens: result.usage.output_tokens,
+              prompt_tokens: result.usage.input_tokens + (autoFixApplied ? fixResult.usage.input_tokens : 0),
+              completion_tokens: result.usage.output_tokens + (autoFixApplied ? fixResult.usage.output_tokens : 0),
               trace_id: result.traceId,
+              auto_fix_applied: autoFixApplied,
             },
           },
           true
