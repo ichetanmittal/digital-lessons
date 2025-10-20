@@ -7,6 +7,7 @@ import { inngest } from "./client";
 import { generateLesson, fixValidationErrors } from "@/lib/ai/claude";
 import { validateTypeScriptCode } from "@/lib/ai/validator";
 import { updateLesson } from "@/lib/supabase/queries";
+import { getLangfuse } from "@/lib/tracing/langfuse";
 
 export const generateLessonFunction = inngest.createFunction(
   {
@@ -137,6 +138,88 @@ export const generateLessonFunction = inngest.createFunction(
           },
           true
         );
+      });
+
+      // Step 4: Add Langfuse scores for quality tracking
+      await step.run("score-lesson-quality", async () => {
+        if (!result.traceId) return;
+
+        const langfuse = getLangfuse();
+        const totalTokens = result.usage.input_tokens + result.usage.output_tokens +
+                          (autoFixApplied ? fixResult.usage.input_tokens + fixResult.usage.output_tokens : 0);
+        const linesOfCode = finalCode?.split('\n').length || 0;
+
+        // Score 1: Validation Success (binary: 1 = passed first try, 0 = needed fix)
+        langfuse.score({
+          traceId: result.traceId,
+          name: 'validation-first-try',
+          value: autoFixApplied ? 0 : 1,
+          comment: autoFixApplied
+            ? `Required auto-fix. Original errors: ${validation.errors.slice(0, 3).join(', ')}`
+            : 'Code passed validation on first generation attempt'
+        });
+
+        // Score 2: Auto-fix Applied (tracking for cost analysis)
+        langfuse.score({
+          traceId: result.traceId,
+          name: 'auto-fix-applied',
+          value: autoFixApplied ? 1 : 0,
+          comment: autoFixApplied
+            ? `Auto-fix succeeded after ${validation.errors.length} error(s)`
+            : 'No auto-fix needed'
+        });
+
+        // Score 3: Generation Success (always 1 if we reach this point)
+        langfuse.score({
+          traceId: result.traceId,
+          name: 'generation-success',
+          value: 1,
+          comment: 'Lesson successfully generated and saved'
+        });
+
+        // Score 4: Token Efficiency (tokens per line of code)
+        const tokensPerLine = linesOfCode > 0 ? totalTokens / linesOfCode : 0;
+        langfuse.score({
+          traceId: result.traceId,
+          name: 'token-efficiency',
+          value: tokensPerLine,
+          comment: `${totalTokens} total tokens for ${linesOfCode} lines (${tokensPerLine.toFixed(2)} tokens/line)`
+        });
+
+        // Score 5: Code Size (lines of code generated)
+        langfuse.score({
+          traceId: result.traceId,
+          name: 'code-size-lines',
+          value: linesOfCode,
+          comment: `Generated ${linesOfCode} lines of TypeScript/React code`
+        });
+
+        // Score 6: Validation Error Count (0 if passed first try)
+        langfuse.score({
+          traceId: result.traceId,
+          name: 'validation-error-count',
+          value: validation.errors.length,
+          comment: validation.errors.length > 0
+            ? `Initial validation had ${validation.errors.length} error(s)`
+            : 'No validation errors'
+        });
+
+        // Score 7: Total Cost Estimate (rough estimate in dollars)
+        const inputCostPerMToken = 0.003; // $3 per 1M tokens for Sonnet
+        const outputCostPerMToken = 0.015; // $15 per 1M tokens for Sonnet
+        const totalInputTokens = result.usage.input_tokens + (autoFixApplied ? fixResult.usage.input_tokens : 0);
+        const totalOutputTokens = result.usage.output_tokens + (autoFixApplied ? fixResult.usage.output_tokens : 0);
+        const estimatedCost = (totalInputTokens / 1000000 * inputCostPerMToken) +
+                             (totalOutputTokens / 1000000 * outputCostPerMToken);
+
+        langfuse.score({
+          traceId: result.traceId,
+          name: 'estimated-cost-usd',
+          value: estimatedCost,
+          comment: `Estimated cost: $${estimatedCost.toFixed(4)} (${totalInputTokens} input + ${totalOutputTokens} output tokens)`
+        });
+
+        return { scoresAdded: 7 };
       });
 
       return {
