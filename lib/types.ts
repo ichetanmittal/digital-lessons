@@ -2,12 +2,16 @@
 
 export type LessonStatus = 'generating' | 'generated' | 'failed';
 
+export type LessonType = 'quiz' | 'tutorial' | 'test' | 'explanation' | 'auto';
+
 export interface LessonMetadata {
   prompt_tokens?: number;
   completion_tokens?: number;
   generation_time_ms?: number;
   trace_id?: string;
   retry_count?: number;
+  lesson_type?: LessonType;
+  auto_fix_applied?: boolean;
 }
 
 export interface Lesson {

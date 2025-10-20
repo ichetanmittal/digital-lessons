@@ -1,14 +1,14 @@
 /**
- * Claude AI integration for lesson generation with Langfuse tracing
+ * OpenAI integration for lesson generation with Langfuse tracing
  */
 
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { createLessonPrompt, createValidationPrompt } from './prompts';
 import { getLangfuse } from '@/lib/tracing/langfuse';
 import type { LessonType } from '@/lib/types';
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 export interface GenerationResult {
@@ -22,7 +22,7 @@ export interface GenerationResult {
 }
 
 /**
- * Generate a TypeScript React component from a lesson outline using Claude
+ * Generate a TypeScript React component from a lesson outline using OpenAI
  * @param outline - The lesson outline from the user
  * @param lessonId - The lesson ID for tracing
  * @param lessonType - The type of lesson to generate (quiz, tutorial, test, explanation, auto)
@@ -46,44 +46,43 @@ export async function generateLesson(
       lessonId,
       requestType: 'lesson-generation',
     },
-    tags: ['claude', 'lesson-generation', 'education'],
+    tags: ['openai', 'lesson-generation', 'education'],
   });
 
   const prompt = createLessonPrompt(outline, lessonType);
 
   // Start generation span
   const generation = trace.generation({
-    name: 'claude-generate-lesson',
-    model: 'claude-sonnet-4-20250514',
+    name: 'openai-generate-lesson',
+    model: 'gpt-5',
     modelParameters: {
-      maxTokens: 8192,
-      temperature: 0.7,
+      reasoning_effort: 'medium',
+      text_verbosity: 'low',
     },
     input: prompt,
   });
 
   try {
-    const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 8192,
-      temperature: 0.7,
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
+    const result = await openai.responses.create({
+      model: 'gpt-5',
+      input: prompt,
+      reasoning: {
+        effort: 'medium', // medium reasoning for better code quality
+      },
+      text: {
+        verbosity: 'low', // low verbosity to get just the code
+      },
     });
 
-    // Extract the generated code from Claude's response
-    const content = message.content[0];
-    if (content.type !== 'text') {
-      throw new Error('Unexpected response type from Claude');
+    // Extract the generated code from OpenAI's response
+    const content = result.output_text;
+    if (!content) {
+      throw new Error('No content in OpenAI GPT-5 response');
     }
 
-    let code = content.text.trim();
+    let code = content.trim();
 
-    // Clean up code fences if Claude added them despite instructions
+    // Clean up code fences if OpenAI added them despite instructions
     if (code.startsWith('```')) {
       code = code.replace(/^```(?:typescript|tsx|ts|javascript|jsx|js)?\n/, '');
       code = code.replace(/\n```$/, '');
@@ -94,9 +93,9 @@ export async function generateLesson(
     generation.end({
       output: code,
       usage: {
-        input: message.usage.input_tokens,
-        output: message.usage.output_tokens,
-        total: message.usage.input_tokens + message.usage.output_tokens,
+        input: result.usage?.input_tokens || 0,
+        output: result.usage?.output_tokens || 0,
+        total: (result.usage?.input_tokens || 0) + (result.usage?.output_tokens || 0),
       },
       statusMessage: 'success',
     });
@@ -107,22 +106,22 @@ export async function generateLesson(
         success: true,
         lessonId,
         codeLength: code.length,
-        model: message.model,
+        model: 'gpt-5',
       },
       metadata: {
-        totalTokens: message.usage.input_tokens + message.usage.output_tokens,
-        inputTokens: message.usage.input_tokens,
-        outputTokens: message.usage.output_tokens,
+        totalTokens: (result.usage?.input_tokens || 0) + (result.usage?.output_tokens || 0),
+        inputTokens: result.usage?.input_tokens || 0,
+        outputTokens: result.usage?.output_tokens || 0,
       },
     });
 
     return {
       code,
       usage: {
-        input_tokens: message.usage.input_tokens,
-        output_tokens: message.usage.output_tokens,
+        input_tokens: result.usage?.input_tokens || 0,
+        output_tokens: result.usage?.output_tokens || 0,
       },
-      model: message.model,
+      model: 'gpt-5',
       traceId: trace.id,
     };
   } catch (error) {
@@ -148,7 +147,7 @@ export async function generateLesson(
 }
 
 /**
- * Fix validation errors in generated code using Claude
+ * Fix validation errors in generated code using OpenAI
  * @param code - The code with validation errors
  * @param errors - Array of validation error messages
  * @param lessonId - The lesson ID for tracing
@@ -174,44 +173,43 @@ export async function fixValidationErrors(
       requestType: 'validation-fix',
       errorCount: errors.length,
     },
-    tags: ['claude', 'validation-fix', 'auto-fix'],
+    tags: ['openai', 'validation-fix', 'auto-fix'],
   });
 
   const prompt = createValidationPrompt(code, errors);
 
   // Start generation span
   const generation = trace.generation({
-    name: 'claude-fix-validation',
-    model: 'claude-sonnet-4-20250514',
+    name: 'openai-fix-validation',
+    model: 'gpt-5',
     modelParameters: {
-      maxTokens: 8192,
-      temperature: 0.3, // Lower temperature for more consistent fixes
+      reasoning_effort: 'high', // high reasoning for fixing errors accurately
+      text_verbosity: 'low',
     },
     input: prompt,
   });
 
   try {
-    const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 8192,
-      temperature: 0.3, // Lower temperature for fixes
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
+    const result = await openai.responses.create({
+      model: 'gpt-5',
+      input: prompt,
+      reasoning: {
+        effort: 'high', // high reasoning for accurate fixes
+      },
+      text: {
+        verbosity: 'low', // just return the fixed code
+      },
     });
 
-    // Extract the fixed code from Claude's response
-    const content = message.content[0];
-    if (content.type !== 'text') {
-      throw new Error('Unexpected response type from Claude');
+    // Extract the fixed code from OpenAI's response
+    const content = result.output_text;
+    if (!content) {
+      throw new Error('No content in OpenAI GPT-5 response');
     }
 
-    let fixedCode = content.text.trim();
+    let fixedCode = content.trim();
 
-    // Clean up code fences if Claude added them
+    // Clean up code fences if OpenAI added them
     if (fixedCode.startsWith('```')) {
       fixedCode = fixedCode.replace(/^```(?:typescript|tsx|ts|javascript|jsx|js)?\n/, '');
       fixedCode = fixedCode.replace(/\n```$/, '');
@@ -222,9 +220,9 @@ export async function fixValidationErrors(
     generation.end({
       output: fixedCode,
       usage: {
-        input: message.usage.input_tokens,
-        output: message.usage.output_tokens,
-        total: message.usage.input_tokens + message.usage.output_tokens,
+        input: result.usage?.input_tokens || 0,
+        output: result.usage?.output_tokens || 0,
+        total: (result.usage?.input_tokens || 0) + (result.usage?.output_tokens || 0),
       },
       statusMessage: 'success',
     });
@@ -235,22 +233,22 @@ export async function fixValidationErrors(
         success: true,
         lessonId,
         codeLength: fixedCode.length,
-        model: message.model,
+        model: 'gpt-5',
       },
       metadata: {
-        totalTokens: message.usage.input_tokens + message.usage.output_tokens,
-        inputTokens: message.usage.input_tokens,
-        outputTokens: message.usage.output_tokens,
+        totalTokens: (result.usage?.input_tokens || 0) + (result.usage?.output_tokens || 0),
+        inputTokens: result.usage?.input_tokens || 0,
+        outputTokens: result.usage?.output_tokens || 0,
       },
     });
 
     return {
       code: fixedCode,
       usage: {
-        input_tokens: message.usage.input_tokens,
-        output_tokens: message.usage.output_tokens,
+        input_tokens: result.usage?.input_tokens || 0,
+        output_tokens: result.usage?.output_tokens || 0,
       },
-      model: message.model,
+      model: 'gpt-5',
       traceId: trace.id,
     };
   } catch (error) {
