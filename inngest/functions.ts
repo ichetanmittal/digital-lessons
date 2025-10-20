@@ -8,6 +8,7 @@ import { generateLesson, fixValidationErrors } from "@/lib/ai/claude";
 import { validateTypeScriptCode } from "@/lib/ai/validator";
 import { updateLesson } from "@/lib/supabase/queries";
 import { getLangfuse } from "@/lib/tracing/langfuse";
+import { evaluateLessonWithJudge } from "@/lib/ai/judge";
 
 export const generateLessonFunction = inngest.createFunction(
   {
@@ -220,6 +221,79 @@ export const generateLessonFunction = inngest.createFunction(
         });
 
         return { scoresAdded: 7 };
+      });
+
+      // Step 5: LLM-as-a-Judge evaluation (optional, runs async)
+      await step.run("evaluate-with-llm-judge", async () => {
+        if (!result.traceId || !finalCode) return { skipped: true };
+
+        try {
+          const langfuse = getLangfuse();
+
+          // Run judge evaluation
+          const judgeEval = await evaluateLessonWithJudge(
+            finalCode,
+            outline,
+            lessonId,
+            result.traceId
+          );
+
+          // Add judge scores to the original generation trace
+          langfuse.score({
+            traceId: result.traceId,
+            name: 'judge-educational-quality',
+            value: judgeEval.educational_quality,
+            comment: `Educational quality rated ${judgeEval.educational_quality}/5 by LLM judge`
+          });
+
+          langfuse.score({
+            traceId: result.traceId,
+            name: 'judge-age-appropriateness',
+            value: judgeEval.age_appropriateness,
+            comment: `Age appropriateness rated ${judgeEval.age_appropriateness}/5 by LLM judge`
+          });
+
+          langfuse.score({
+            traceId: result.traceId,
+            name: 'judge-engagement-level',
+            value: judgeEval.engagement_level,
+            comment: `Engagement level rated ${judgeEval.engagement_level}/5 by LLM judge`
+          });
+
+          langfuse.score({
+            traceId: result.traceId,
+            name: 'judge-accessibility',
+            value: judgeEval.accessibility_compliance,
+            comment: `Accessibility compliance rated ${judgeEval.accessibility_compliance}/5 by LLM judge`
+          });
+
+          langfuse.score({
+            traceId: result.traceId,
+            name: 'judge-code-quality',
+            value: judgeEval.code_quality,
+            comment: `Code quality rated ${judgeEval.code_quality}/5 by LLM judge`
+          });
+
+          langfuse.score({
+            traceId: result.traceId,
+            name: 'judge-overall-score',
+            value: judgeEval.overall_score,
+            comment: `Overall score: ${judgeEval.overall_score.toFixed(2)}/5. Reasoning: ${judgeEval.reasoning}`
+          });
+
+          return {
+            evaluated: true,
+            overallScore: judgeEval.overall_score,
+            judgeScoresAdded: 6
+          };
+        } catch (error) {
+          console.error('Judge evaluation failed:', error);
+          // Don't fail the whole job if judge evaluation fails
+          return {
+            evaluated: false,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          };
+        }
       });
 
       return {
