@@ -98,7 +98,7 @@ export function LessonForm() {
         )}
       </div>
 
-      <div className="flex items-center space-x-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+      <div className="flex items-center space-x-3 p-3 backdrop-blur-sm bg-blue-50/50 dark:bg-blue-900/20 rounded-lg border border-blue-200/50 dark:border-blue-800/50">
         <input
           type="checkbox"
           id="generateImages"
@@ -109,7 +109,7 @@ export function LessonForm() {
         />
         <label htmlFor="generateImages" className="flex-1 cursor-pointer">
           <Label className="text-sm font-medium cursor-pointer">
-            🎨 Generate AI Images for Lesson
+            Generate AI Images for Lesson
           </Label>
           <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
             Uses OpenAI DALL-E 3 to create relevant visual content. Adds ~5-10 seconds to generation time.
@@ -120,12 +120,12 @@ export function LessonForm() {
       <Button
         type="submit"
         disabled={isLoading || !outline.trim()}
-        className="w-full sm:w-auto"
+        className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
       >
         {isLoading ? 'Generating...' : 'Generate Lesson'}
       </Button>
 
-      <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+      <div className="mt-4 p-4 backdrop-blur-sm bg-gray-50/50 dark:bg-gray-800/50 rounded-lg border border-gray-200/50 dark:border-gray-700/50">
         <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
           Example lesson outlines:
         </p>
