@@ -20,7 +20,15 @@ export function LessonRenderer({ code, title }: LessonRendererProps) {
         <SandpackProvider
           template="react-ts"
           files={{
-            '/App.tsx': code,
+            '/App.tsx': `import './styles.css';\n${code}`,
+            '/styles.css': `
+              * {
+                font-family: 'Lexend', sans-serif !important;
+              }
+              body {
+                font-family: 'Lexend', sans-serif !important;
+              }
+            `,
           }}
           customSetup={{
             dependencies: {
@@ -31,6 +39,7 @@ export function LessonRenderer({ code, title }: LessonRendererProps) {
           options={{
             externalResources: [
               'https://cdn.tailwindcss.com',
+              'https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap',
             ],
           }}
         >
