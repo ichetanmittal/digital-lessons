@@ -75,6 +75,7 @@ STYLE GUIDELINES (IMPORTANT - KIDS WILL USE THIS):
 - Add fun facts and "Did you know?" sections
 - Use card-based layouts with shadows and rounded corners
 - Include celebration animations for completion
+- IMPORTANT: Use font-family: 'Lexend', sans-serif for all text elements
 
 CODE STRUCTURE:
 - Use TypeScript with proper type annotations
@@ -91,18 +92,19 @@ export default function GeneratedLesson() {
   const [score, setScore] = useState(0);
 
   return (
-    <main className="max-w-4xl mx-auto p-8 bg-gradient-to-br from-blue-500 to-purple-600 min-h-screen">
-      <h1 className="text-5xl font-bold text-white mb-6 text-center">
+    <main className="max-w-4xl mx-auto p-8 bg-gradient-to-br from-blue-500 to-purple-600 min-h-screen" style={{ fontFamily: 'Lexend, sans-serif' }}>
+      <h1 className="text-5xl font-bold text-white mb-6 text-center" style={{ fontFamily: 'Lexend, sans-serif' }}>
         🎯 Lesson Title
       </h1>
 
-      <section aria-label="Lesson content" className="bg-white rounded-2xl shadow-2xl p-8">
+      <section aria-label="Lesson content" className="bg-white rounded-2xl shadow-2xl p-8" style={{ fontFamily: 'Lexend, sans-serif' }}>
         {/* Interactive content with cards, animations, emojis */}
 
         <button
           onClick={() => setCurrentStep(currentStep + 1)}
           aria-label="Go to next step"
           className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 outline-none"
+          style={{ fontFamily: 'Lexend, sans-serif' }}
         >
           Next
         </button>
