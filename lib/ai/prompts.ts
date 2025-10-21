@@ -63,18 +63,18 @@ ACCESSIBILITY REQUIREMENTS (WCAG 2.1 AA):
 
 STYLE GUIDELINES (IMPORTANT - KIDS WILL USE THIS):
 - Use simple, encouraging language (ages 8-14)
-- Add emojis to make it fun (🎉 🌟 🚀 ✨ 💡 🎯)
-- Use bright gradients (bg-gradient-to-br from-blue-500 to-purple-600)
+- Use minimal emojis - only 1-2 per lesson maximum
+- Use theme-appropriate gradients (bg-gradient-to-br from-gray-800 to-gray-900 for dark theme, from-gray-100 to-gray-200 for light theme)
 - Large, readable text (text-xl minimum, text-4xl for titles)
 - Smooth animations (transition-all duration-300, hover:scale-105)
-- Sound effects in text ("Whoosh! 🚀", "Ding! ✨", "Awesome! 🎉")
+- Clean, professional language without excessive sound effects
 - Progress indicators (progress bars, step counters, badges)
 - Gamification elements (points, levels, achievements)
-- Instant positive feedback ("You're a star! ⭐", "Amazing work! 🌟")
-- Make wrong answers encouraging ("Almost there! Try again! 💪")
-- Add fun facts and "Did you know?" sections
+- Instant positive feedback ("Great job!", "Well done!")
+- Make wrong answers encouraging ("Try again!", "Keep going!")
+- Add educational facts and "Did you know?" sections
 - Use card-based layouts with shadows and rounded corners
-- Include celebration animations for completion
+- Include subtle animations for completion
 - IMPORTANT: Use font-family: 'Lexend', sans-serif for all text elements
 
 CODE STRUCTURE:
@@ -92,18 +92,18 @@ export default function GeneratedLesson() {
   const [score, setScore] = useState(0);
 
   return (
-    <main className="max-w-4xl mx-auto p-8 bg-gradient-to-br from-blue-500 to-purple-600 min-h-screen" style={{ fontFamily: 'Lexend, sans-serif' }}>
-      <h1 className="text-5xl font-bold text-white mb-6 text-center" style={{ fontFamily: 'Lexend, sans-serif' }}>
-        🎯 Lesson Title
+    <main className="max-w-4xl mx-auto p-8 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 min-h-screen" style={{ fontFamily: 'Lexend, sans-serif' }}>
+      <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-6 text-center" style={{ fontFamily: 'Lexend, sans-serif' }}>
+        Lesson Title
       </h1>
 
-      <section aria-label="Lesson content" className="bg-white rounded-2xl shadow-2xl p-8" style={{ fontFamily: 'Lexend, sans-serif' }}>
-        {/* Interactive content with cards, animations, emojis */}
+      <section aria-label="Lesson content" className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8" style={{ fontFamily: 'Lexend, sans-serif' }}>
+        {/* Interactive content with cards, animations */}
 
         <button
           onClick={() => setCurrentStep(currentStep + 1)}
           aria-label="Go to next step"
-          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 outline-none"
+          className="px-6 py-3 bg-gray-800 dark:bg-gray-700 text-white rounded-lg hover:bg-gray-700 dark:hover:bg-gray-600 focus-visible:ring-2 focus-visible:ring-gray-500 outline-none"
           style={{ fontFamily: 'Lexend, sans-serif' }}
         >
           Next
