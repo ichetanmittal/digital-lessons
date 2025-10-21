@@ -21,6 +21,14 @@ export interface GenerationResult {
   traceId?: string;
 }
 
+export interface ImageData {
+  url: string;
+  prompt: string;
+  revisedPrompt?: string;
+  size: string;
+  generatedAt: string;
+}
+
 /**
  * Generate a TypeScript React component from a lesson outline using OpenAI
  * @param outline - The lesson outline from the user
@@ -32,7 +40,7 @@ export async function generateLesson(
   outline: string,
   lessonId?: string,
   lessonType: LessonType = 'auto',
-  generatedImages?: any[]
+  generatedImages?: ImageData[]
 ): Promise<GenerationResult> {
   const langfuse = getLangfuse();
 
@@ -53,7 +61,7 @@ export async function generateLesson(
     tags: ['openai', 'lesson-generation', 'education', 'with-images'],
   });
 
-  const prompt = createLessonPrompt(outline, lessonType, generatedImages?.map((img: any) => ({
+  const prompt = createLessonPrompt(outline, lessonType, generatedImages?.map((img) => ({
     url: img.url,
     prompt: img.prompt,
   })));

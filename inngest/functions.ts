@@ -10,7 +10,7 @@ import { validateTypeScriptCode } from "@/lib/ai/validator";
 import { updateLesson } from "@/lib/supabase/queries";
 import { getLangfuse } from "@/lib/tracing/langfuse";
 import { evaluateLessonWithJudge } from "@/lib/ai/judge";
-import { generateLessonImages } from "@/lib/ai/images";
+import { generateLessonImages, type GeneratedImage } from "@/lib/ai/images";
 
 export const generateLessonFunction = inngest.createFunction(
   {
@@ -39,7 +39,7 @@ export const generateLessonFunction = inngest.createFunction(
   async ({ event, step }) => {
     const { lessonId, outline, generateImages = true } = event.data;
 
-    let generatedImages: any[] = [];
+    let generatedImages: GeneratedImage[] = [];
 
     try {
       // Step 0: Generate AI images (optional, runs in parallel if enabled)
