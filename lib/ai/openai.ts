@@ -26,11 +26,13 @@ export interface GenerationResult {
  * @param outline - The lesson outline from the user
  * @param lessonId - The lesson ID for tracing
  * @param lessonType - The type of lesson to generate (quiz, tutorial, test, explanation, auto)
+ * @param generatedImages - Optional array of AI-generated images to include in the lesson
  */
 export async function generateLesson(
   outline: string,
   lessonId?: string,
-  lessonType: LessonType = 'auto'
+  lessonType: LessonType = 'auto',
+  generatedImages?: any[]
 ): Promise<GenerationResult> {
   const langfuse = getLangfuse();
 
@@ -41,15 +43,20 @@ export async function generateLesson(
     input: {
       outline,
       lessonId,
+      hasImages: !!generatedImages && generatedImages.length > 0,
     },
     metadata: {
       lessonId,
       requestType: 'lesson-generation',
+      imageCount: generatedImages?.length || 0,
     },
-    tags: ['openai', 'lesson-generation', 'education'],
+    tags: ['openai', 'lesson-generation', 'education', 'with-images'],
   });
 
-  const prompt = createLessonPrompt(outline, lessonType);
+  const prompt = createLessonPrompt(outline, lessonType, generatedImages?.map((img: any) => ({
+    url: img.url,
+    prompt: img.prompt,
+  })));
 
   // Start generation span
   const generation = trace.generation({

@@ -10,6 +10,7 @@ export function LessonForm() {
   const [outline, setOutline] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [generateImages, setGenerateImages] = useState(true);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +34,10 @@ export function LessonForm() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ outline: outline.trim() }),
+        body: JSON.stringify({
+          outline: outline.trim(),
+          generateImages: generateImages,
+        }),
       });
 
       const data = await response.json();
@@ -92,6 +96,25 @@ export function LessonForm() {
         {error && (
           <p className="text-sm text-destructive">{error}</p>
         )}
+      </div>
+
+      <div className="flex items-center space-x-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+        <input
+          type="checkbox"
+          id="generateImages"
+          checked={generateImages}
+          onChange={(e) => setGenerateImages(e.target.checked)}
+          disabled={isLoading}
+          className="w-5 h-5 rounded cursor-pointer"
+        />
+        <label htmlFor="generateImages" className="flex-1 cursor-pointer">
+          <Label className="text-sm font-medium cursor-pointer">
+            🎨 Generate AI Images for Lesson
+          </Label>
+          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+            Uses OpenAI DALL-E 3 to create relevant visual content. Adds ~5-10 seconds to generation time.
+          </p>
+        </label>
       </div>
 
       <Button

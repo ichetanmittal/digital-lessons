@@ -1,6 +1,7 @@
 /**
  * Inngest function for generating lessons with OpenAI GPT-5
  * This runs as a background job to avoid API route timeouts
+ * Includes SVG graphics and AI-generated images support
  */
 
 import { inngest } from "./client";
@@ -9,6 +10,7 @@ import { validateTypeScriptCode } from "@/lib/ai/validator";
 import { updateLesson } from "@/lib/supabase/queries";
 import { getLangfuse } from "@/lib/tracing/langfuse";
 import { evaluateLessonWithJudge } from "@/lib/ai/judge";
+import { generateLessonImages } from "@/lib/ai/images";
 
 export const generateLessonFunction = inngest.createFunction(
   {
@@ -35,12 +37,29 @@ export const generateLessonFunction = inngest.createFunction(
   },
   { event: "lesson/generate" },
   async ({ event, step }) => {
-    const { lessonId, outline } = event.data;
+    const { lessonId, outline, generateImages = true } = event.data;
+
+    let generatedImages: any[] = [];
 
     try {
-      // Step 1: Generate lesson with Claude AI
+      // Step 0: Generate AI images (optional, runs in parallel if enabled)
+      if (generateImages) {
+        generatedImages = await step.run("generate-images", async () => {
+          try {
+            const images = await generateLessonImages(outline, 1);
+            console.log(`✅ Generated ${images.length} image(s) for lesson ${lessonId}`);
+            return images;
+          } catch (error) {
+            console.warn(`⚠️ Image generation failed for lesson ${lessonId}:`, error instanceof Error ? error.message : 'Unknown error');
+            // Don't fail the entire lesson if images fail - continue without them
+            return [];
+          }
+        });
+      }
+
+      // Step 1: Generate lesson with Claude AI (now with image context)
       const result = await step.run("generate-with-claude", async () => {
-        return await generateLesson(outline, lessonId);
+        return await generateLesson(outline, lessonId, 'auto', generatedImages);
       });
 
       // Step 2: Validate the generated code
@@ -123,7 +142,7 @@ export const generateLessonFunction = inngest.createFunction(
         throw new Error(errorMessage);
       }
 
-      // Step 3: Save to database
+      // Step 3: Save to database (with image metadata)
       await step.run("save-lesson", async () => {
         return await updateLesson(
           lessonId,
@@ -135,6 +154,14 @@ export const generateLessonFunction = inngest.createFunction(
               completion_tokens: result.usage.output_tokens + (autoFixApplied ? fixResult.usage.output_tokens : 0),
               trace_id: result.traceId,
               auto_fix_applied: autoFixApplied,
+              generated_images: generatedImages.map(img => ({
+                url: img.url,
+                prompt: img.prompt,
+                revisedPrompt: img.revisedPrompt,
+                size: img.size,
+                generatedAt: img.generatedAt,
+              })),
+              image_generation_enabled: generateImages,
             },
           },
           true

@@ -12,6 +12,14 @@ export interface LessonMetadata {
   retry_count?: number;
   lesson_type?: LessonType;
   auto_fix_applied?: boolean;
+  generated_images?: Array<{
+    url: string;
+    prompt: string;
+    revisedPrompt?: string;
+    size: string;
+    generatedAt: string;
+  }>;
+  image_generation_enabled?: boolean;
 }
 
 export interface Lesson {

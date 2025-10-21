@@ -27,7 +27,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { outline } = body;
+    const { outline, generateImages = true } = body;
 
     // Validation
     if (!outline || typeof outline !== 'string') {
@@ -54,17 +54,18 @@ export async function POST(request: NextRequest) {
     // Step 2: Create lesson record with 'generating' status
     const lesson = await createLesson({ outline }, true);
 
-    // Step 3: Send event to Inngest for background processing
+    // Step 3: Send event to Inngest for background processing (with optional image generation)
     try {
       await inngest.send({
         name: "lesson/generate",
         data: {
           lessonId: lesson.id,
           outline: outline,
+          generateImages: generateImages === true, // Pass image generation flag
         },
       });
 
-      console.log(`🚀 Triggered Inngest background job for lesson: ${lesson.id}`);
+      console.log(`🚀 Triggered Inngest background job for lesson: ${lesson.id} (images: ${generateImages})`);
 
       return NextResponse.json(
         {
@@ -72,6 +73,7 @@ export async function POST(request: NextRequest) {
             id: lesson.id,
             status: 'generating',
             message: 'Lesson generation started',
+            generateImages: generateImages,
           },
           warning: !isInngestHealthy ? 'Inngest dev server is not running. The lesson will remain in "generating" status until Inngest processes it.' : undefined,
         },

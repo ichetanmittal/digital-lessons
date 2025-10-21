@@ -26,9 +26,26 @@ function detectLessonType(outline: string): LessonType {
   return 'auto';
 }
 
-export function createLessonPrompt(outline: string, lessonType: LessonType = 'auto'): string {
+export function createLessonPrompt(outline: string, lessonType: LessonType = 'auto', generatedImages?: Array<{url: string, prompt: string}>): string {
   // Auto-detect lesson type if set to 'auto'
   const detectedType = lessonType === 'auto' ? detectLessonType(outline) : lessonType;
+
+  // Build AI-generated images section if provided
+  const imagesSection = generatedImages && generatedImages.length > 0
+    ? `
+AVAILABLE AI-GENERATED IMAGES (from DALL-E 3):
+These images are ready to use in your lesson:
+${generatedImages.map((img, idx) => `
+Image ${idx + 1}:
+- Prompt: ${img.prompt}
+- URL: ${img.url}
+- Usage Example: <img src="${img.url}" alt="Educational illustration" className="w-full max-w-2xl mx-auto rounded-lg shadow-lg my-4" />
+`).join('\n')}
+
+IMPORTANT: Incorporate these AI-generated images into appropriate sections of the lesson. They enhance visual learning.
+`
+    : '';
+
   return `You are an expert educational content creator and TypeScript/React developer specialized in creating interactive lessons for students.
 
 Generate a complete, self-contained React component for the following lesson:
@@ -36,6 +53,7 @@ Generate a complete, self-contained React component for the following lesson:
 
 LESSON TYPE: ${detectedType.toUpperCase()}
 ${detectedType !== 'auto' ? `Focus on creating a ${detectedType} with appropriate structure and features.` : ''}
+${imagesSection}
 
 CRITICAL REQUIREMENTS:
 1. Output ONLY valid TypeScript/React code - no markdown, no explanations, no code fences
@@ -48,6 +66,45 @@ CRITICAL REQUIREMENTS:
 8. For quizzes: include score tracking, instant feedback, and a "Submit" or "Next" flow
 9. For explanations: use clear sections, examples, and visual elements
 10. For tests: include grading logic and results display
+
+VISUAL ENHANCEMENT OPTIONS (Choose as many as applicable):
+A. SVG GRAPHICS (Inline, no external dependencies):
+   - Use <svg> tags directly in JSX for diagrams, charts, icons, and geometric illustrations
+   - Examples:
+     * Bar/pie charts for data visualization
+     * Flowcharts showing processes or relationships
+     * Geometric shapes for math/science concepts
+     * Timeline diagrams for history lessons
+     * Mind maps for organizing information
+     * Molecular structures for chemistry
+   - SVG Tips:
+     * Use viewBox for responsive scaling
+     * Apply Tailwind classes: className="w-full max-w-md mx-auto"
+     * Color code elements with fill="#3B82F6" or Tailwind classes
+     * Add animations: className="animate-pulse" or "transition-all duration-300"
+   - Example SVG: <svg viewBox="0 0 100 100" className="w-32 h-32 mx-auto">
+       <circle cx="50" cy="50" r="40" fill="#3B82F6" />
+       <text x="50" y="55" textAnchor="middle" fill="white" className="font-bold">
+         Text
+       </text>
+     </svg>
+
+B. AI-GENERATED IMAGES (Provided via DALL-E 3):
+   - Use the image URLs provided above
+   - Place strategically to support content
+   - Add descriptive alt text for accessibility
+   - Use responsive sizing: className="w-full max-w-2xl mx-auto rounded-lg shadow-lg"
+
+COMBINED EXAMPLE (SVG + Image):
+<div className="space-y-6">
+  {/* SVG Chart */}
+  <svg viewBox="0 0 200 100" className="w-full max-w-md mx-auto">
+    {/* Chart implementation */}
+  </svg>
+
+  {/* AI Generated Image */}
+  <img src="[image_url]" alt="[description]" className="w-full max-w-2xl mx-auto rounded-lg shadow-lg" />
+</div>
 
 ACCESSIBILITY REQUIREMENTS (WCAG 2.1 AA):
 1. Use semantic HTML elements (button, nav, main, section, article)
