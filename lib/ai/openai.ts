@@ -71,7 +71,7 @@ export async function generateLesson(
     name: 'openai-generate-lesson',
     model: 'gpt-5',
     modelParameters: {
-      reasoning_effort: 'medium',
+      reasoning_effort: 'low',
       text_verbosity: 'low',
     },
     input: prompt,
@@ -82,7 +82,7 @@ export async function generateLesson(
       model: 'gpt-5',
       input: prompt,
       reasoning: {
-        effort: 'medium', // medium reasoning for better code quality
+        effort: 'low', // low reasoning for faster responses (still high quality)
       },
       text: {
         verbosity: 'low', // low verbosity to get just the code
@@ -198,7 +198,7 @@ export async function fixValidationErrors(
     name: 'openai-fix-validation',
     model: 'gpt-5',
     modelParameters: {
-      reasoning_effort: 'high', // high reasoning for fixing errors accurately
+      reasoning_effort: 'low', // low reasoning for fixing errors (faster)
       text_verbosity: 'low',
     },
     input: prompt,
@@ -209,7 +209,7 @@ export async function fixValidationErrors(
       model: 'gpt-5',
       input: prompt,
       reasoning: {
-        effort: 'high', // high reasoning for accurate fixes
+        effort: 'low', // low reasoning for faster fixes
       },
       text: {
         verbosity: 'low', // just return the fixed code

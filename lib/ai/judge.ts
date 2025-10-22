@@ -107,7 +107,7 @@ export async function evaluateLessonWithJudge(
     name: 'openai-judge-evaluation',
     model: 'gpt-5',
     modelParameters: {
-      reasoning_effort: 'high', // high reasoning for accurate evaluation
+      reasoning_effort: 'minimal', // minimal reasoning for fast evaluation
       text_verbosity: 'low',
     },
     input: prompt,
@@ -118,7 +118,7 @@ export async function evaluateLessonWithJudge(
       model: 'gpt-5',
       input: prompt,
       reasoning: {
-        effort: 'high', // thorough evaluation
+        effort: 'minimal', // minimal reasoning for fast evaluation
       },
       text: {
         verbosity: 'low', // just return JSON
