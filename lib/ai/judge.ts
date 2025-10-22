@@ -105,29 +105,23 @@ export async function evaluateLessonWithJudge(
   // Start generation span
   const generation = trace.generation({
     name: 'openai-judge-evaluation',
-    model: 'gpt-5',
+    model: 'gpt-4.1',
     modelParameters: {
-      reasoning_effort: 'minimal', // minimal reasoning for fast evaluation
-      text_verbosity: 'low',
+      temperature: 0.3, // lower temperature for consistent evaluation
     },
     input: prompt,
   });
 
   try {
     const result = await openai.responses.create({
-      model: 'gpt-5',
+      model: 'gpt-4.1',
       input: prompt,
-      reasoning: {
-        effort: 'minimal', // minimal reasoning for fast evaluation
-      },
-      text: {
-        verbosity: 'low', // just return JSON
-      },
+      temperature: 0.3, // lower temperature for consistent evaluation
     });
 
     const content = result.output_text;
     if (!content) {
-      throw new Error('No content in OpenAI GPT-5 judge response');
+      throw new Error('No content in OpenAI GPT-4.1 judge response');
     }
 
     // Parse JSON response (extract JSON if wrapped in text)
