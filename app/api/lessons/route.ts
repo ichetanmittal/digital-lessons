@@ -44,14 +44,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Step 1: Check if Inngest is running
+    // Step 1: Check if Inngest is running BEFORE creating lesson
     const isInngestHealthy = await checkInngestHealth();
 
     if (!isInngestHealthy) {
-      console.warn('⚠️  Inngest dev server is not running. Please start it with: bunx inngest-cli@latest dev');
+      console.error('❌ Inngest dev server is not running. Please start it with: bunx inngest-cli@latest dev');
+      return NextResponse.json(
+        {
+          error: 'Inngest service is not available',
+          message: 'Please start the Inngest dev server with: bunx inngest-cli@latest dev',
+        },
+        { status: 503 }
+      );
     }
 
-    // Step 2: Create lesson record with 'generating' status
+    // Step 2: Create lesson record with 'generating' status (only if Inngest is healthy)
     const lesson = await createLesson({ outline }, true);
 
     // Step 3: Send event to Inngest for background processing (with optional image generation)
@@ -75,12 +82,11 @@ export async function POST(request: NextRequest) {
             message: 'Lesson generation started',
             generateImages: generateImages,
           },
-          warning: !isInngestHealthy ? 'Inngest dev server is not running. The lesson will remain in "generating" status until Inngest processes it.' : undefined,
         },
         { status: 201 }
       );
     } catch (inngestError) {
-      // If Inngest send fails, update lesson to failed status
+      // If Inngest send fails (unexpected, since we checked health), update lesson to failed status
       console.error('Failed to send event to Inngest:', inngestError);
 
       await updateLesson(
