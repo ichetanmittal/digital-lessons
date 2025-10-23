@@ -13,7 +13,6 @@ import { updateLesson } from "@/lib/supabase/queries";
 import { getLangfuse } from "@/lib/tracing/langfuse";
 import { evaluateLessonWithJudge } from "@/lib/ai/judge";
 import { generateLessonImages, type GeneratedImage } from "@/lib/ai/images";
-import { streamEventStore } from "@/lib/streaming/event-store";
 
 export const generateLessonFunction = inngest.createFunction(
   {
