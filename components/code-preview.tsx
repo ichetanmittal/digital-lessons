@@ -1,8 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import SyntaxHighlighter from 'react-syntax-highlighter';
-import { atomOneDark } from 'react-syntax-highlighter/dist/esm/styles/hljs';
+import { useState } from 'react';
 
 interface CodePreviewProps {
   code: string;
@@ -89,28 +87,16 @@ export function CodePreview({ code, isStreaming, status, error, title }: CodePre
             >
               <div className="bg-gray-900 p-4 overflow-x-auto">
                 {hoveredCode || !isStreaming ? (
-                  <SyntaxHighlighter
-                    language="typescript"
-                    style={atomOneDark}
-                    customStyle={{
-                      margin: 0,
-                      padding: 0,
-                      backgroundColor: 'transparent',
-                      fontSize: '0.875rem',
-                      lineHeight: '1.5',
-                    }}
-                    wrapLines={true}
-                    showLineNumbers={true}
-                  >
-                    {code}
-                  </SyntaxHighlighter>
+                  <pre className="text-sm font-mono text-gray-300 m-0 p-0">
+                    <code>{code}</code>
+                  </pre>
                 ) : (
                   <div className="text-gray-400 text-sm font-mono">
                     <div className="text-center py-8">
                       <div className="inline-block">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-4"></div>
                         <p>Generating code...</p>
-                        <p className="text-xs text-gray-500 mt-2">Hover to see what's generated so far</p>
+                        <p className="text-xs text-gray-500 mt-2">Hover to see what&apos;s generated so far</p>
                       </div>
                     </div>
                   </div>

@@ -21,7 +21,6 @@ export function ClientLessonPage({
   initialTitle,
   initialError,
 }: ClientPageProps) {
-  const [showCode, setShowCode] = useState(false);
   const [showGenerating, setShowGenerating] = useState(initialStatus === 'generating');
 
   const { code, status, isStreaming, error } = useCodeStream({
@@ -66,7 +65,7 @@ export function ClientLessonPage({
         <CodePreview
           code={code || initialCode || ''}
           isStreaming={isStreaming}
-          status={status as any}
+          status={status as 'generating' | 'generated' | 'failed' | 'unknown'}
           error={error}
           title={initialTitle}
         />

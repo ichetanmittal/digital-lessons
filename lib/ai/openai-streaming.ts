@@ -4,7 +4,7 @@
  */
 
 import OpenAI from 'openai';
-import { createLessonPrompt, createValidationPrompt } from './prompts';
+import { createLessonPrompt } from './prompts';
 import { getLangfuse } from '@/lib/tracing/langfuse';
 import { streamEventStore } from '@/lib/streaming/event-store';
 import type { LessonType } from '@/lib/types';
@@ -70,6 +70,7 @@ export async function generateLessonWithStreaming(
 
   try {
     // Create streaming response from OpenAI using chat.completions.create with stream
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const stream = await (openai.chat.completions.stream as any)({
       model: 'gpt-5',
       messages: [
@@ -101,6 +102,7 @@ export async function generateLessonWithStreaming(
     }
 
     // Get final message for token counts
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const finalMessage = stream.finalMessage?.() as any;
     if (finalMessage?.usage) {
       inputTokens = finalMessage.usage.prompt_tokens || 0;
