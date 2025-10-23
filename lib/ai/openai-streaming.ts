@@ -29,7 +29,7 @@ export async function generateLessonWithStreaming(
   lessonId: string,
   lessonType: LessonType = 'auto',
   generatedImages?: ImageData[]
-): Promise<{ code: string; usage: { input_tokens: number; output_tokens: number } }> {
+): Promise<{ code: string; usage: { input_tokens: number; output_tokens: number }; model: string; traceId?: string }> {
   const langfuse = getLangfuse();
 
   // Emit status event
@@ -141,6 +141,8 @@ export async function generateLessonWithStreaming(
     return {
       code: fullCode,
       usage: { input_tokens: inputTokens, output_tokens: outputTokens },
+      model: 'gpt-5',
+      traceId: trace.id,
     };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';

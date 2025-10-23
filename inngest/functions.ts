@@ -67,8 +67,8 @@ export const generateLessonFunction = inngest.createFunction(
           return {
             code: streamResult.code,
             usage: streamResult.usage,
-            model: 'gpt-5',
-            traceId: undefined, // Will be added later
+            model: streamResult.model,
+            traceId: streamResult.traceId,
           };
         } catch (streamError) {
           console.warn('Streaming failed, falling back to non-streaming:', streamError);
