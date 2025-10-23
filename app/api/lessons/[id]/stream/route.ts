@@ -45,21 +45,38 @@ export async function GET(
 
           console.log(`📡 Initial status sent: ${lesson.status}`);
 
+          // Track if stream is closed
+          let isClosed = false;
+
           // Subscribe to real-time streaming events from Inngest
           const unsubscribe = streamEventStore.subscribe(id, (event) => {
             try {
+              // Skip sending if stream is already closed
+              if (isClosed) {
+                console.log(`⚠️ Stream closed, skipping event: ${event.type}`);
+                return;
+              }
+
               console.log(`📤 Streaming event: ${event.type}`);
               controller.enqueue(`data: ${JSON.stringify(event)}\n\n`);
 
               // Close on completion or error
               if (event.type === 'complete' || event.type === 'error') {
+                isClosed = true;
                 setTimeout(() => {
                   controller.close();
                   unsubscribe();
                 }, 500); // Delay to ensure client receives event
               }
             } catch (error) {
-              console.error('Error sending stream event:', error);
+              // Handle "Invalid state: Controller is already closed" gracefully
+              if (error instanceof Error && error.message.includes('closed')) {
+                console.log(`⚠️ Controller closed during streaming, unsubscribing`);
+                isClosed = true;
+                unsubscribe();
+              } else {
+                console.error('Error sending stream event:', error);
+              }
             }
           });
 

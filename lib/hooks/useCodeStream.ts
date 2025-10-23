@@ -48,7 +48,11 @@ export function useCodeStream({ lessonId, enabled = true, onUpdate }: UseCodeStr
         try {
           const data: StreamEvent = JSON.parse(event.data);
 
-          console.log('📨 Stream event:', data.type);
+          console.log('📨 Stream event received:', data.type, {
+            codeLength: data.code?.length || 0,
+            hasStatus: !!data.status,
+            timestamp: data.timestamp,
+          });
 
           // Handle different event types
           if (data.type === 'code-chunk') {
