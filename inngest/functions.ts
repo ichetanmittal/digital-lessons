@@ -2,15 +2,18 @@
  * Inngest function for generating lessons with OpenAI GPT-5
  * This runs as a background job to avoid API route timeouts
  * Includes SVG graphics and AI-generated images support
+ * STREAMING: Emits code chunks in real-time to frontend
  */
 
 import { inngest } from "./client";
 import { generateLesson, fixValidationErrors } from "@/lib/ai/openai";
+import { generateLessonWithStreaming } from "@/lib/ai/openai-streaming";
 import { validateTypeScriptCode } from "@/lib/ai/validator";
 import { updateLesson } from "@/lib/supabase/queries";
 import { getLangfuse } from "@/lib/tracing/langfuse";
 import { evaluateLessonWithJudge } from "@/lib/ai/judge";
 import { generateLessonImages, type GeneratedImage } from "@/lib/ai/images";
+import { streamEventStore } from "@/lib/streaming/event-store";
 
 export const generateLessonFunction = inngest.createFunction(
   {
@@ -57,9 +60,21 @@ export const generateLessonFunction = inngest.createFunction(
         });
       }
 
-      // Step 1: Generate lesson with Claude AI (now with image context)
-      const result = await step.run("generate-with-claude", async () => {
-        return await generateLesson(outline, lessonId, 'auto', generatedImages);
+      // Step 1: Generate lesson with streaming (emits code chunks to frontend in real-time)
+      const result = await step.run("generate-with-streaming", async () => {
+        try {
+          const streamResult = await generateLessonWithStreaming(outline, lessonId, 'auto', generatedImages);
+          return {
+            code: streamResult.code,
+            usage: streamResult.usage,
+            model: 'gpt-5',
+            traceId: undefined, // Will be added later
+          };
+        } catch (streamError) {
+          console.warn('Streaming failed, falling back to non-streaming:', streamError);
+          // Fallback to non-streaming if streaming fails
+          return await generateLesson(outline, lessonId, 'auto', generatedImages);
+        }
       });
 
       // Step 2: Validate the generated code

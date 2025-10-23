@@ -136,9 +136,11 @@ export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
   };
 
   const handleRowClick = (lesson: Lesson) => {
-    if (lesson.status === 'generated') {
-      router.push(`/lessons/${lesson.id}`);
-    }
+    // Allow clicking on any lesson, regardless of status
+    // - 'generated': shows the rendered lesson
+    // - 'generating': shows real-time streaming code preview
+    // - 'failed': shows error message
+    router.push(`/lessons/${lesson.id}`);
   };
 
   const handleDeleteClick = (e: React.MouseEvent, lesson: Lesson) => {
@@ -354,11 +356,7 @@ export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
               <tr
                 key={lesson.id}
                 onClick={() => handleRowClick(lesson)}
-                className={`${
-                  lesson.status === 'generated'
-                    ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors'
-                    : 'cursor-not-allowed opacity-60'
-                }`}
+                className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
