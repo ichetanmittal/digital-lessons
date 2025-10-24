@@ -122,8 +122,8 @@ export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
     };
 
     const colors = {
-      generating: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100 dark:bg-yellow-900 dark:text-yellow-200',
-      generated: 'bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-200',
+      generating: 'bg-gradient-to-r from-purple-600/40 to-purple-700/40 text-purple-700 dark:text-purple-300 border border-purple-500/50 dark:border-purple-500/40 animate-pulse',
+      generated: 'bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-700/50',
       failed: '',
     };
 
@@ -374,10 +374,10 @@ export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <Button
-                    variant="destructive"
                     size="sm"
                     onClick={(e) => handleDeleteClick(e, lesson)}
                     disabled={deletingId === lesson.id}
+                    className="bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-700/50 hover:bg-red-100 dark:hover:bg-red-900/30 dark:hover:border-red-600/70 rounded-md transition-all duration-300 hover:shadow-lg hover:shadow-red-600/10 dark:hover:shadow-red-500/5 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {deletingId === lesson.id ? 'Deleting...' : 'Delete'}
                   </Button>
@@ -427,9 +427,9 @@ export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
               Cancel
             </Button>
             <Button
-              variant="destructive"
               onClick={handleDeleteConfirm}
               disabled={deletingId !== null}
+              className="bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-700/50 hover:bg-red-100 dark:hover:bg-red-900/30 dark:hover:border-red-600/70 transition-all duration-300"
             >
               {deletingId ? 'Deleting...' : 'Delete'}
             </Button>

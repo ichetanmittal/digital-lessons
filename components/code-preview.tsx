@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface CodePreviewProps {
   code: string;
@@ -12,10 +12,29 @@ interface CodePreviewProps {
 
 export function CodePreview({ code, isStreaming, status, error, title }: CodePreviewProps) {
   const [hoveredCode, setHoveredCode] = useState(false);
+  const codeContainerRef = useRef<HTMLDivElement>(null);
+  const userScrolledUp = useRef(false);
+
+  useEffect(() => {
+    if (codeContainerRef.current && isStreaming) {
+      const scrollContainer = codeContainerRef.current.closest('.overflow-auto');
+      if (scrollContainer && !userScrolledUp.current) {
+        setTimeout(() => {
+          scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        }, 0);
+      }
+    }
+  }, [code, isStreaming]);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    const isAtBottom = target.scrollHeight - target.scrollTop - target.clientHeight < 100;
+    userScrolledUp.current = !isAtBottom;
+  };
 
   return (
     <div className="w-full h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
+      
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 sticky top-0 z-10">
         <div className="flex items-center justify-between">
           <div>
@@ -44,22 +63,17 @@ export function CodePreview({ code, isStreaming, status, error, title }: CodePre
             </p>
           </div>
 
-          {/* Hover Info */}
+          
           <div className="text-right">
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {code.length > 0 && `${code.length} characters`}
             </p>
-            {isStreaming && (
-              <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                Hover to see code
-              </p>
-            )}
           </div>
         </div>
       </div>
 
-      {/* Content Area */}
-      <div className="flex-1 overflow-auto">
+      
+      <div className="flex-1 overflow-auto" onScroll={handleScroll}>
         {error && (
           <div className="m-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
             <h3 className="font-semibold text-red-900 dark:text-red-100 mb-1">
@@ -73,20 +87,21 @@ export function CodePreview({ code, isStreaming, status, error, title }: CodePre
 
         {code && (
           <div
+            ref={codeContainerRef}
             onMouseEnter={() => isStreaming && setHoveredCode(true)}
             onMouseLeave={() => setHoveredCode(false)}
             className={`relative p-4 transition-all duration-200 ${
               isStreaming && hoveredCode ? 'ring-2 ring-blue-500 rounded-lg mx-4 my-4' : ''
             }`}
           >
-            {/* Code Display */}
+           
             <div
               className={`rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 ${
                 isStreaming && hoveredCode ? 'ring-2 ring-blue-400' : ''
               }`}
             >
               <div className="bg-gray-900 p-4 overflow-x-auto">
-                {hoveredCode || !isStreaming ? (
+                {code ? (
                   <pre className="text-sm font-mono text-gray-300 m-0 p-0">
                     <code>{code}</code>
                   </pre>
@@ -96,7 +111,6 @@ export function CodePreview({ code, isStreaming, status, error, title }: CodePre
                       <div className="inline-block">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-4"></div>
                         <p>Generating code...</p>
-                        <p className="text-xs text-gray-500 mt-2">Hover to see what&apos;s generated so far</p>
                       </div>
                     </div>
                   </div>
@@ -104,12 +118,12 @@ export function CodePreview({ code, isStreaming, status, error, title }: CodePre
               </div>
             </div>
 
-            {/* Streaming indicator */}
+           
             {isStreaming && (
               <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                 <p className="text-sm text-blue-900 dark:text-blue-100">
                   <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-pulse mr-2"></span>
-                  Code is being generated in real-time. {hoveredCode ? 'You can see the code above.' : 'Hover over the code area to preview.'}
+                  Code is being generated in real-time.
                 </p>
               </div>
             )}
