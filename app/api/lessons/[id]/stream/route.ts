@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getLessonById } from '@/lib/supabase/queries';
+import { getUserLessonById } from '@/lib/supabase/auth-queries';
 import { streamEventStore } from '@/lib/streaming/event-store';
 
 interface RouteContext {
@@ -31,8 +31,8 @@ export async function GET(
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          // Initial lesson fetch from DB
-          const lesson = await getLessonById(id, true);
+          // Initial lesson fetch from DB for authenticated user
+          const lesson = await getUserLessonById(id, true);
 
           // Send initial state
           controller.enqueue(
@@ -83,7 +83,7 @@ export async function GET(
           // Fallback: Also poll DB every 2 seconds in case of event store issues
           const dbPollInterval = setInterval(async () => {
             try {
-              const updated = await getLessonById(id, true);
+              const updated = await getUserLessonById(id, true);
 
               // If status changed to completed
               if (updated.status === 'generated' || updated.status === 'failed') {

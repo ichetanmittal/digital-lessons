@@ -1,13 +1,31 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { ThemeSwitcher } from '@/components/theme-switcher';
+import { useAuth } from '@/lib/auth-context';
+import { Button } from '@/components/ui/button';
+import { signOut } from '@/lib/auth-utils';
+import { toast } from 'sonner';
 
 interface NavbarProps {
   className?: string;
 }
 
 export function Navbar({ className }: NavbarProps) {
+  const { user } = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    const result = await signOut();
+    if (result.success) {
+      toast.success('Logged out successfully');
+      router.push('/sign-in');
+    } else {
+      toast.error(result.error || 'Failed to log out');
+    }
+  };
+
   return (
     <nav className={cn(
       "relative w-full backdrop-blur-lg bg-gradient-to-r from-purple-600/40 to-purple-700/40 dark:from-purple-900/30 dark:to-purple-900/30 px-6 py-4 shadow-2xl rounded-bl-2xl rounded-br-2xl border border-white/20 dark:border-white/10",
@@ -25,9 +43,17 @@ export function Navbar({ className }: NavbarProps) {
         <div className="flex items-center gap-4">
           <div className="backdrop-blur-sm bg-white/30 dark:bg-slate-900/40 rounded-full px-4 py-2 shadow-lg border border-white/20 dark:border-white/10">
             <span className="text-gray-900 dark:text-white font-semibold text-sm" style={{ fontFamily: 'Lexend, sans-serif' }}>
-              Hello User
+              {user?.email || 'User'}
             </span>
           </div>
+          <Button
+            onClick={handleLogout}
+            variant="outline"
+            size="sm"
+            className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+          >
+            Logout
+          </Button>
           <ThemeSwitcher />
         </div>
       </div>

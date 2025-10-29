@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getLessonById, deleteLesson } from '@/lib/supabase/queries';
+import { getUserLessonById, deleteUserLesson } from '@/lib/supabase/auth-queries';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -7,7 +7,7 @@ interface RouteContext {
 
 /**
  * GET /api/lessons/[id]
- * Fetch a single lesson by ID
+ * Fetch a single lesson by ID for authenticated user
  */
 export async function GET(
   request: NextRequest,
@@ -23,13 +23,13 @@ export async function GET(
       );
     }
 
-    const lesson = await getLessonById(id, true);
+    const lesson = await getUserLessonById(id, true);
 
     return NextResponse.json({ lesson }, { status: 200 });
   } catch (error) {
     console.error('Error fetching lesson:', error);
     return NextResponse.json(
-      { error: 'Lesson not found' },
+      { error: 'Lesson not found or access denied' },
       { status: 404 }
     );
   }
@@ -37,7 +37,7 @@ export async function GET(
 
 /**
  * DELETE /api/lessons/[id]
- * Delete a lesson by ID
+ * Delete a lesson by ID for authenticated user
  */
 export async function DELETE(
   request: NextRequest,
@@ -53,7 +53,7 @@ export async function DELETE(
       );
     }
 
-    await deleteLesson(id, true);
+    await deleteUserLesson(id, true);
 
     return NextResponse.json(
       { message: 'Lesson deleted successfully' },

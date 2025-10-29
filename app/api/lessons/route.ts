@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createLesson, getLessons, updateLesson } from '@/lib/supabase/queries';
+import { getUserLessons, createUserLesson, updateUserLesson } from '@/lib/supabase/auth-queries';
 import { inngest } from '@/inngest/client';
 import { checkInngestHealth } from '@/lib/inngest-check';
 
 /**
  * GET /api/lessons
- * Fetch all lessons
+ * Fetch all lessons for authenticated user
  */
 export async function GET() {
   try {
-    const lessons = await getLessons(true);
+    const lessons = await getUserLessons(true);
     return NextResponse.json({ lessons }, { status: 200 });
   } catch (error) {
     console.error('Error fetching lessons:', error);
@@ -22,7 +22,7 @@ export async function GET() {
 
 /**
  * POST /api/lessons
- * Create a new lesson and trigger background generation with Inngest
+ * Create a new lesson for authenticated user and trigger background generation with Inngest
  */
 export async function POST(request: NextRequest) {
   try {
@@ -58,8 +58,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Step 2: Create lesson record with 'generating' status (only if Inngest is healthy)
-    const lesson = await createLesson({ outline }, true);
+    // Step 2: Create lesson record with 'generating' status for authenticated user
+    const lesson = await createUserLesson({ outline }, true);
 
     // Step 3: Send event to Inngest for background processing (with optional image generation)
     try {
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
       // If Inngest send fails (unexpected, since we checked health), update lesson to failed status
       console.error('Failed to send event to Inngest:', inngestError);
 
-      await updateLesson(
+      await updateUserLesson(
         lesson.id,
         {
           status: 'failed',

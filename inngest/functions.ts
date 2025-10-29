@@ -9,7 +9,7 @@ import { inngest } from "./client";
 import { generateLesson, fixValidationErrors } from "@/lib/ai/openai";
 import { generateLessonWithStreaming } from "@/lib/ai/openai-streaming";
 import { validateTypeScriptCode } from "@/lib/ai/validator";
-import { updateLesson } from "@/lib/supabase/queries";
+import { updateUserLesson } from "@/lib/supabase/auth-queries";
 import { getLangfuse } from "@/lib/tracing/langfuse";
 import { evaluateLessonWithJudge } from "@/lib/ai/judge";
 import { generateLessonImages, type GeneratedImage } from "@/lib/ai/images";
@@ -24,7 +24,7 @@ export const generateLessonFunction = inngest.createFunction(
       const { lessonId } = event.data.event.data;
 
       try {
-        await updateLesson(
+        await updateUserLesson(
           lessonId,
           {
             status: "failed",
@@ -106,7 +106,7 @@ export const generateLessonFunction = inngest.createFunction(
             // Auto-fix failed, mark lesson as failed
             const errorMessage = `Validation failed after auto-fix attempt: ${revalidation.errors.join(", ")}`;
 
-            await updateLesson(
+            await updateUserLesson(
               lessonId,
               {
                 status: "failed",
@@ -127,7 +127,7 @@ export const generateLessonFunction = inngest.createFunction(
           // Auto-fix process failed entirely
           const errorMessage = `Validation failed: ${validation.errors.join(", ")}. Auto-fix attempt failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
 
-          await updateLesson(
+          await updateUserLesson(
             lessonId,
             {
               status: "failed",
@@ -144,7 +144,7 @@ export const generateLessonFunction = inngest.createFunction(
       if (!finalCode) {
         const errorMessage = "No valid code generated";
 
-        await updateLesson(
+        await updateUserLesson(
           lessonId,
           {
             status: "failed",
@@ -158,7 +158,7 @@ export const generateLessonFunction = inngest.createFunction(
 
       // Step 3: Save to database (with image metadata)
       await step.run("save-lesson", async () => {
-        return await updateLesson(
+        return await updateUserLesson(
           lessonId,
           {
             status: "generated",
@@ -344,7 +344,7 @@ export const generateLessonFunction = inngest.createFunction(
       };
     } catch (error) {
       // Mark as failed for any unexpected errors
-      await updateLesson(
+      await updateUserLesson(
         lessonId,
         {
           status: "failed",
