@@ -9,7 +9,7 @@ import { inngest } from "./client";
 import { generateLesson, fixValidationErrors } from "@/lib/ai/openai";
 import { generateLessonWithStreaming } from "@/lib/ai/openai-streaming";
 import { validateTypeScriptCode } from "@/lib/ai/validator";
-import { updateUserLesson } from "@/lib/supabase/auth-queries";
+import { updateLessonAsService } from "@/lib/supabase/auth-queries";
 import { getLangfuse } from "@/lib/tracing/langfuse";
 import { evaluateLessonWithJudge } from "@/lib/ai/judge";
 import { generateLessonImages, type GeneratedImage } from "@/lib/ai/images";
@@ -24,13 +24,12 @@ export const generateLessonFunction = inngest.createFunction(
       const { lessonId } = event.data.event.data;
 
       try {
-        await updateUserLesson(
+        await updateLessonAsService(
           lessonId,
           {
             status: "failed",
             error_message: error.message || "Failed to generate lesson after multiple retries",
-          },
-          true
+          }
         );
       } catch (updateError) {
         console.error("Failed to update lesson status:", updateError);
@@ -107,7 +106,7 @@ export const generateLessonFunction = inngest.createFunction(
             // Auto-fix failed, mark lesson as failed
             const errorMessage = `Validation failed after auto-fix attempt: ${revalidation.errors.join(", ")}`;
 
-            await updateUserLesson(
+            await updateLessonAsService(
               lessonId,
               {
                 status: "failed",
@@ -118,8 +117,7 @@ export const generateLessonFunction = inngest.createFunction(
                   trace_id: result.traceId,
                   auto_fix_applied: false,
                 },
-              },
-              true
+              }
             );
 
             throw new Error(errorMessage);
@@ -128,13 +126,12 @@ export const generateLessonFunction = inngest.createFunction(
           // Auto-fix process failed entirely
           const errorMessage = `Validation failed: ${validation.errors.join(", ")}. Auto-fix attempt failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
 
-          await updateUserLesson(
+          await updateLessonAsService(
             lessonId,
             {
               status: "failed",
               error_message: errorMessage,
-            },
-            true
+            }
           );
 
           throw new Error(errorMessage);
@@ -145,13 +142,12 @@ export const generateLessonFunction = inngest.createFunction(
       if (!finalCode) {
         const errorMessage = "No valid code generated";
 
-        await updateUserLesson(
+        await updateLessonAsService(
           lessonId,
           {
             status: "failed",
             error_message: errorMessage,
-          },
-          true
+          }
         );
 
         throw new Error(errorMessage);
@@ -159,7 +155,7 @@ export const generateLessonFunction = inngest.createFunction(
 
       // Step 3: Save to database (with image metadata)
       await step.run("save-lesson", async () => {
-        return await updateUserLesson(
+        return await updateLessonAsService(
           lessonId,
           {
             status: "generated",
@@ -178,8 +174,7 @@ export const generateLessonFunction = inngest.createFunction(
               })),
               image_generation_enabled: generateImages,
             },
-          },
-          true
+          }
         );
       });
 
@@ -345,13 +340,12 @@ export const generateLessonFunction = inngest.createFunction(
       };
     } catch (error) {
       // Mark as failed for any unexpected errors
-      await updateUserLesson(
+      await updateLessonAsService(
         lessonId,
         {
           status: "failed",
           error_message: error instanceof Error ? error.message : "Unknown error occurred",
-        },
-        true
+        }
       );
 
       throw error; // Re-throw to trigger retries

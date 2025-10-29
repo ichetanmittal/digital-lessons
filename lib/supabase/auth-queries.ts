@@ -3,7 +3,7 @@
  * These queries automatically filter by user_id from the authenticated session
  */
 
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { createClient as createBrowserClient } from '@/lib/supabase/client';
 import type { Lesson, CreateLessonInput, UpdateLessonInput } from '@/lib/types';
 
@@ -181,4 +181,29 @@ export async function deleteUserLesson(id: string, isServer = true) {
   }
 
   return { success: true };
+}
+
+/**
+ * Update a lesson using service role (for background jobs like Inngest)
+ * Does NOT require user authentication - uses service role to bypass RLS
+ * @param id - Lesson UUID
+ * @param input - Fields to update
+ */
+export async function updateLessonAsService(id: string, input: UpdateLessonInput) {
+  const supabase = createServiceRoleClient();
+
+  // Update lesson directly using service role (RLS bypassed)
+  const { data, error } = await supabase
+    .from('lessons')
+    .update(input)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating lesson:', error);
+    throw error;
+  }
+
+  return data as Lesson;
 }
