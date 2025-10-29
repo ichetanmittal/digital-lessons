@@ -64,7 +64,11 @@ export async function GET(
               if (event.type === 'complete' || event.type === 'error') {
                 isClosed = true;
                 setTimeout(() => {
-                  controller.close();
+                  try {
+                    controller.close();
+                  } catch (e) {
+                    // Controller already closed, that's fine
+                  }
                   unsubscribe();
                 }, 500); // Delay to ensure client receives event
               }
@@ -101,8 +105,13 @@ export async function GET(
                   })}\n\n`
                 );
 
+                isClosed = true;
                 setTimeout(() => {
-                  controller.close();
+                  try {
+                    controller.close();
+                  } catch (e) {
+                    // Controller already closed, that's fine
+                  }
                   unsubscribe();
                 }, 500);
               }
@@ -114,20 +123,32 @@ export async function GET(
           // Set timeout to stop after 30 minutes
           setTimeout(() => {
             clearInterval(dbPollInterval);
-            controller.close();
+            try {
+              controller.close();
+            } catch (e) {
+              // Controller already closed, that's fine
+            }
             unsubscribe();
           }, 30 * 60 * 1000);
         } catch (error) {
           console.error('Stream error:', error);
-          controller.enqueue(
-            `data: ${JSON.stringify({
-              type: 'error',
-              lessonId: id,
-              message: error instanceof Error ? error.message : 'Unknown error',
-              timestamp: Date.now(),
-            })}\n\n`
-          );
-          controller.close();
+          try {
+            controller.enqueue(
+              `data: ${JSON.stringify({
+                type: 'error',
+                lessonId: id,
+                message: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: Date.now(),
+              })}\n\n`
+            );
+          } catch (e) {
+            // Controller already closed, that's fine
+          }
+          try {
+            controller.close();
+          } catch (e) {
+            // Controller already closed, that's fine
+          }
         }
       },
     });
