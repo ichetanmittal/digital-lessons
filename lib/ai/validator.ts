@@ -83,7 +83,7 @@ export function validateTypeScriptCode(code: string): ValidationResult {
 function validateSyntaxWithTypeScript(code: string, errors: string[]): void {
   try {
     // Dynamically import typescript to avoid bundling issues
-    // eslint-disable-next-line global-require,@typescript-eslint/no-var-requires
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const ts: typeof import('typescript') = require('typescript');
 
     // Create a source file and check for parsing errors
