@@ -1,6 +1,6 @@
 /**
  * LLM-as-a-Judge evaluation for generated lessons
- * Uses OpenAI GPT-4o to evaluate lesson quality on multiple dimensions
+ * Uses OpenAI GPT-4 JSON mode for guaranteed valid JSON responses
  */
 
 import OpenAI from 'openai';
@@ -22,6 +22,8 @@ export interface JudgeEvaluation {
 
 /**
  * Create evaluation prompt for LLM judge
+ * Note: Response format enforces JSON output from the model
+ * Expected JSON fields: educational_quality, age_appropriateness, engagement_level, accessibility_compliance, code_quality, reasoning
  */
 function createJudgePrompt(code: string, outline: string): string {
   return `You are an expert educational content evaluator. Your task is to evaluate a React lesson component designed for students aged 8-14.
@@ -61,19 +63,20 @@ Evaluate this lesson on the following dimensions (rate each 1-5, where 5 is exce
    - Are there proper type annotations?
    - Is it following React best practices?
 
-RESPOND IN THIS EXACT JSON FORMAT (no other text):
+Return a JSON object with the following exact field names and numeric ratings (1-5) for each dimension, plus a brief reasoning (2-3 sentences):
 {
-  "educational_quality": <1-5>,
-  "age_appropriateness": <1-5>,
-  "engagement_level": <1-5>,
-  "accessibility_compliance": <1-5>,
-  "code_quality": <1-5>,
-  "reasoning": "<2-3 sentence summary explaining the ratings>"
+  "educational_quality": <number 1-5>,
+  "age_appropriateness": <number 1-5>,
+  "engagement_level": <number 1-5>,
+  "accessibility_compliance": <number 1-5>,
+  "code_quality": <number 1-5>,
+  "reasoning": "<string with 2-3 sentences>"
 }`;
 }
 
 /**
- * Evaluate a generated lesson using Claude as a judge
+ * Evaluate a generated lesson using OpenAI JSON mode
+ * Enforces JSON output format for guaranteed valid JSON responses
  */
 export async function evaluateLessonWithJudge(
   code: string,
@@ -95,41 +98,52 @@ export async function evaluateLessonWithJudge(
     metadata: {
       lessonId,
       parentTraceId,
-      evaluationType: 'llm-as-a-judge',
+      evaluationType: 'llm-as-a-judge-structured-outputs',
     },
-    tags: ['evaluation', 'llm-judge', 'quality-check'],
+    tags: ['evaluation', 'llm-judge', 'quality-check', 'structured-outputs'],
   });
 
   const prompt = createJudgePrompt(code, outline);
 
   // Start generation span
   const generation = trace.generation({
-    name: 'openai-judge-evaluation',
+    name: 'openai-judge-evaluation-structured',
     model: 'gpt-4.1',
     modelParameters: {
       temperature: 0.3, // lower temperature for consistent evaluation
+      response_format: 'json_object', // Use JSON mode for guaranteed valid JSON
     },
     input: prompt,
   });
 
   try {
-    const result = await openai.responses.create({
+    // Use OpenAI's JSON mode to enforce valid JSON output
+    const result = await openai.chat.completions.create({
       model: 'gpt-4.1',
-      input: prompt,
       temperature: 0.3, // lower temperature for consistent evaluation
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      response_format: {
+        type: 'json_object' as const,
+      },
     });
 
-    const content = result.output_text;
-    if (!content) {
-      throw new Error('No content in OpenAI GPT-4.1 judge response');
+    if (!result.choices[0].message.content) {
+      throw new Error('No content in OpenAI evaluation response');
     }
 
-    // Parse JSON response (extract JSON if wrapped in text)
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    const evaluation = JSON.parse(jsonMatch ? jsonMatch[0] : content) as JudgeEvaluation;
+    // Parse the guaranteed-valid JSON response
+    const evaluation = JSON.parse(result.choices[0].message.content) as Omit<
+      JudgeEvaluation,
+      'overall_score'
+    >;
 
-    // Calculate overall score
-    evaluation.overall_score = (
+    // Calculate overall score from the 5 dimensions
+    const overallScore = (
       evaluation.educational_quality +
       evaluation.age_appropriateness +
       evaluation.engagement_level +
@@ -137,13 +151,18 @@ export async function evaluateLessonWithJudge(
       evaluation.code_quality
     ) / 5;
 
+    const completeEvaluation: JudgeEvaluation = {
+      ...evaluation,
+      overall_score: overallScore,
+    };
+
     // End generation span with success
     generation.end({
-      output: evaluation,
+      output: completeEvaluation,
       usage: {
-        input: result.usage?.input_tokens || 0,
-        output: result.usage?.output_tokens || 0,
-        total: (result.usage?.input_tokens || 0) + (result.usage?.output_tokens || 0),
+        input: result.usage?.prompt_tokens || 0,
+        output: result.usage?.completion_tokens || 0,
+        total: (result.usage?.prompt_tokens || 0) + (result.usage?.completion_tokens || 0),
       },
       statusMessage: 'success',
     });
@@ -152,15 +171,17 @@ export async function evaluateLessonWithJudge(
     trace.update({
       output: {
         success: true,
-        evaluation,
+        evaluation: completeEvaluation,
       },
       metadata: {
-        totalTokens: (result.usage?.input_tokens || 0) + (result.usage?.output_tokens || 0),
-        overallScore: evaluation.overall_score,
+        totalTokens:
+          (result.usage?.prompt_tokens || 0) + (result.usage?.completion_tokens || 0),
+        overallScore,
+        jsonMode: true,
       },
     });
 
-    return evaluation;
+    return completeEvaluation;
   } catch (error) {
     // End generation span with error
     generation.end({
