@@ -1,53 +1,67 @@
-import { getLessons } from '@/lib/supabase/queries';
+'use client';
+
+import { useEffect, useState } from 'react';
 import { LessonForm } from '@/components/lesson-form';
 import { LessonsTable } from '@/components/lessons-table';
 import { Navbar } from '@/components/navbar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ProtectedRoute } from '@/components/protected-route';
+import { useAuth } from '@/lib/auth-context';
+import type { Lesson } from '@/lib/types';
 
-export const dynamic = 'force-dynamic';
+export default function Home() {
+  const { isAuthenticated } = useAuth();
+  const [initialLessons, setInitialLessons] = useState<Lesson[]>([]);
 
-export default async function Home() {
-  const lessons = await getLessons(true);
+  useEffect(() => {
+    if (isAuthenticated) {
+      // Fetch user's lessons
+      const fetchLessons = async () => {
+        try {
+          const response = await fetch('/api/lessons');
+          const data = await response.json();
+          setInitialLessons(data.lessons || []);
+        } catch (error) {
+          console.error('Error fetching lessons:', error);
+        }
+      };
+
+      fetchLessons();
+    }
+  }, [isAuthenticated]);
 
   return (
-    <>
-      <Navbar />
-      <main className="min-h-screen bg-gradient-to-br from-gray-50/20 to-gray-100/20 dark:from-gray-900/20 dark:to-gray-950/20 backdrop-blur-3xl py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto space-y-8">
-          <div className="text-center">
-            {/* <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-3">
-              Digital Lessons
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              AI-Powered Interactive Learning Platform
-            </p> */}
+    <ProtectedRoute>
+      <>
+        <Navbar />
+        <main className="min-h-screen bg-gradient-to-br from-gray-50/20 to-gray-100/20 dark:from-gray-900/20 dark:to-gray-950/20 backdrop-blur-3xl py-12 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto space-y-8">
+            <Card>
+              <CardHeader>
+                <CardTitle>Create New Lesson</CardTitle>
+                <CardDescription>
+                  Describe your lesson and let AI generate an interactive learning experience
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <LessonForm />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Your Lessons</CardTitle>
+                <CardDescription>
+                  View and manage all your generated lessons
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <LessonsTable initialLessons={initialLessons} />
+              </CardContent>
+            </Card>
           </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Create New Lesson</CardTitle>
-              <CardDescription>
-                Describe your lesson and let AI generate an interactive learning experience
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <LessonForm />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Your Lessons</CardTitle>
-              <CardDescription>
-                View and manage all your generated lessons
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <LessonsTable initialLessons={lessons} />
-            </CardContent>
-          </Card>
-        </div>
-      </main>
-    </>
+        </main>
+      </>
+    </ProtectedRoute>
   );
 }

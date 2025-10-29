@@ -9,7 +9,7 @@ import { inngest } from "./client";
 import { generateLesson, fixValidationErrors } from "@/lib/ai/openai";
 import { generateLessonWithStreaming } from "@/lib/ai/openai-streaming";
 import { validateTypeScriptCode } from "@/lib/ai/validator";
-import { updateLesson } from "@/lib/supabase/queries";
+import { updateLessonAsService } from "@/lib/supabase/auth-queries";
 import { getLangfuse } from "@/lib/tracing/langfuse";
 import { evaluateLessonWithJudge } from "@/lib/ai/judge";
 import { generateLessonImages, type GeneratedImage } from "@/lib/ai/images";
@@ -24,13 +24,12 @@ export const generateLessonFunction = inngest.createFunction(
       const { lessonId } = event.data.event.data;
 
       try {
-        await updateLesson(
+        await updateLessonAsService(
           lessonId,
           {
             status: "failed",
             error_message: error.message || "Failed to generate lesson after multiple retries",
-          },
-          true
+          }
         );
       } catch (updateError) {
         console.error("Failed to update lesson status:", updateError);
@@ -48,7 +47,8 @@ export const generateLessonFunction = inngest.createFunction(
       if (generateImages) {
         generatedImages = await step.run("generate-images", async () => {
           try {
-            const images = await generateLessonImages(outline, 1);
+            // Pass lessonId to generate images so they're stored permanently
+            const images = await generateLessonImages(outline, lessonId, 1);
             console.log(`✅ Generated ${images.length} image(s) for lesson ${lessonId}`);
             return images;
           } catch (error) {
@@ -106,7 +106,7 @@ export const generateLessonFunction = inngest.createFunction(
             // Auto-fix failed, mark lesson as failed
             const errorMessage = `Validation failed after auto-fix attempt: ${revalidation.errors.join(", ")}`;
 
-            await updateLesson(
+            await updateLessonAsService(
               lessonId,
               {
                 status: "failed",
@@ -117,8 +117,7 @@ export const generateLessonFunction = inngest.createFunction(
                   trace_id: result.traceId,
                   auto_fix_applied: false,
                 },
-              },
-              true
+              }
             );
 
             throw new Error(errorMessage);
@@ -127,13 +126,12 @@ export const generateLessonFunction = inngest.createFunction(
           // Auto-fix process failed entirely
           const errorMessage = `Validation failed: ${validation.errors.join(", ")}. Auto-fix attempt failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
 
-          await updateLesson(
+          await updateLessonAsService(
             lessonId,
             {
               status: "failed",
               error_message: errorMessage,
-            },
-            true
+            }
           );
 
           throw new Error(errorMessage);
@@ -144,13 +142,12 @@ export const generateLessonFunction = inngest.createFunction(
       if (!finalCode) {
         const errorMessage = "No valid code generated";
 
-        await updateLesson(
+        await updateLessonAsService(
           lessonId,
           {
             status: "failed",
             error_message: errorMessage,
-          },
-          true
+          }
         );
 
         throw new Error(errorMessage);
@@ -158,7 +155,7 @@ export const generateLessonFunction = inngest.createFunction(
 
       // Step 3: Save to database (with image metadata)
       await step.run("save-lesson", async () => {
-        return await updateLesson(
+        return await updateLessonAsService(
           lessonId,
           {
             status: "generated",
@@ -177,8 +174,7 @@ export const generateLessonFunction = inngest.createFunction(
               })),
               image_generation_enabled: generateImages,
             },
-          },
-          true
+          }
         );
       });
 
@@ -344,13 +340,12 @@ export const generateLessonFunction = inngest.createFunction(
       };
     } catch (error) {
       // Mark as failed for any unexpected errors
-      await updateLesson(
+      await updateLessonAsService(
         lessonId,
         {
           status: "failed",
           error_message: error instanceof Error ? error.message : "Unknown error occurred",
-        },
-        true
+        }
       );
 
       throw error; // Re-throw to trigger retries

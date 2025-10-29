@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getLessonById } from '@/lib/supabase/queries';
+import { getUserLessonById } from '@/lib/supabase/auth-queries';
 import { streamEventStore } from '@/lib/streaming/event-store';
 
 interface RouteContext {
@@ -31,8 +31,8 @@ export async function GET(
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          // Initial lesson fetch from DB
-          const lesson = await getLessonById(id, true);
+          // Initial lesson fetch from DB for authenticated user
+          const lesson = await getUserLessonById(id, true);
 
           // Send initial state
           controller.enqueue(
@@ -64,7 +64,11 @@ export async function GET(
               if (event.type === 'complete' || event.type === 'error') {
                 isClosed = true;
                 setTimeout(() => {
-                  controller.close();
+                  try {
+                    controller.close();
+                  } catch (e) {
+                    // Controller already closed, that's fine
+                  }
                   unsubscribe();
                 }, 500); // Delay to ensure client receives event
               }
@@ -83,7 +87,7 @@ export async function GET(
           // Fallback: Also poll DB every 2 seconds in case of event store issues
           const dbPollInterval = setInterval(async () => {
             try {
-              const updated = await getLessonById(id, true);
+              const updated = await getUserLessonById(id, true);
 
               // If status changed to completed
               if (updated.status === 'generated' || updated.status === 'failed') {
@@ -101,8 +105,13 @@ export async function GET(
                   })}\n\n`
                 );
 
+                isClosed = true;
                 setTimeout(() => {
-                  controller.close();
+                  try {
+                    controller.close();
+                  } catch (e) {
+                    // Controller already closed, that's fine
+                  }
                   unsubscribe();
                 }, 500);
               }
@@ -114,20 +123,32 @@ export async function GET(
           // Set timeout to stop after 30 minutes
           setTimeout(() => {
             clearInterval(dbPollInterval);
-            controller.close();
+            try {
+              controller.close();
+            } catch (e) {
+              // Controller already closed, that's fine
+            }
             unsubscribe();
           }, 30 * 60 * 1000);
         } catch (error) {
           console.error('Stream error:', error);
-          controller.enqueue(
-            `data: ${JSON.stringify({
-              type: 'error',
-              lessonId: id,
-              message: error instanceof Error ? error.message : 'Unknown error',
-              timestamp: Date.now(),
-            })}\n\n`
-          );
-          controller.close();
+          try {
+            controller.enqueue(
+              `data: ${JSON.stringify({
+                type: 'error',
+                lessonId: id,
+                message: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: Date.now(),
+              })}\n\n`
+            );
+          } catch (e) {
+            // Controller already closed, that's fine
+          }
+          try {
+            controller.close();
+          } catch (e) {
+            // Controller already closed, that's fine
+          }
         }
       },
     });
