@@ -48,7 +48,8 @@ export const generateLessonFunction = inngest.createFunction(
       if (generateImages) {
         generatedImages = await step.run("generate-images", async () => {
           try {
-            const images = await generateLessonImages(outline, 1);
+            // Pass lessonId to generate images so they're stored permanently
+            const images = await generateLessonImages(outline, lessonId, 1);
             console.log(`✅ Generated ${images.length} image(s) for lesson ${lessonId}`);
             return images;
           } catch (error) {

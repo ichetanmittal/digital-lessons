@@ -1,10 +1,12 @@
 /**
  * AI Image Generation using OpenAI DALL-E 3
  * Generates educational images for lessons
+ * Images are stored permanently in Supabase Storage to prevent URL expiration
  */
 
 import OpenAI from 'openai';
 import { getLangfuse } from '@/lib/tracing/langfuse';
+import { uploadImageToStorage } from './image-storage';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -80,12 +82,14 @@ export function extractImagePrompts(outline: string): string[] {
 }
 
 /**
- * Generate an image using OpenAI DALL-E 3
+ * Generate an image using OpenAI DALL-E 3 and store it permanently
  * @param prompt - The image prompt
+ * @param lessonId - Lesson ID for organizing storage
  * @param options - Generation options
  */
 export async function generateImage(
   prompt: string,
+  lessonId?: string,
   options?: {
     size?: '1024x1024' | '1792x1024' | '1024x1792';
     quality?: 'standard' | 'hd';
@@ -104,9 +108,11 @@ export async function generateImage(
       prompt,
       size,
       quality,
+      lessonId,
     },
     metadata: {
       requestType: 'image-generation',
+      lessonId,
     },
     tags: ['openai', 'dalle-3', 'image-generation'],
   });
@@ -141,8 +147,20 @@ export async function generateImage(
       throw new Error('No URL in DALL-E 3 response');
     }
 
+    // Upload to permanent storage if lessonId provided
+    let permanentUrl = imageData.url;
+    if (lessonId) {
+      try {
+        permanentUrl = await uploadImageToStorage(imageData.url, lessonId, true);
+        console.log(`✅ Image uploaded to permanent storage`);
+      } catch (uploadError) {
+        console.warn('Failed to upload to storage, using temporary URL:', uploadError);
+        // Fall back to temporary URL if storage upload fails
+      }
+    }
+
     const generatedImage: GeneratedImage = {
-      url: imageData.url,
+      url: permanentUrl, // Use permanent storage URL
       prompt: prompt,
       revisedPrompt: imageData.revised_prompt,
       size: size,
@@ -159,11 +177,13 @@ export async function generateImage(
     trace.update({
       output: {
         success: true,
-        url: imageData.url,
+        url: permanentUrl,
         revisedPrompt: imageData.revised_prompt,
+        isPermanentStorage: permanentUrl !== imageData.url,
       },
       metadata: {
         imageSize: size,
+        storagePath: lessonId ? `${lessonId}/...` : 'temporary',
       },
     });
 
@@ -193,22 +213,24 @@ export async function generateImage(
 /**
  * Generate images for a lesson
  * @param outline - The lesson outline
+ * @param lessonId - Lesson ID for organizing storage
  * @param count - Number of images to generate (default: 1)
  */
 export async function generateLessonImages(
   outline: string,
+  lessonId: string,
   count: number = 1
 ): Promise<GeneratedImage[]> {
   try {
     const prompts = extractImagePrompts(outline);
     const selectedPrompts = prompts.slice(0, Math.min(count, 1)); // Limit to 1 image per lesson for cost
 
-    // Generate all images in parallel
+    // Generate all images in parallel (with lessonId for permanent storage)
     const images = await Promise.all(
-      selectedPrompts.map(prompt => generateImage(prompt))
+      selectedPrompts.map(prompt => generateImage(prompt, lessonId))
     );
 
-    console.log(`✅ Generated ${images.length} image(s) for lesson`);
+    console.log(`✅ Generated ${images.length} image(s) for lesson ${lessonId}`);
     return images;
   } catch (error) {
     console.error('Failed to generate lesson images:', error);
