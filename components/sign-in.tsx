@@ -82,7 +82,7 @@ export function SignInForm() {
           </Button>
 
           <div className="text-center text-sm">
-            <span className="text-gray-600 dark:text-gray-400">Don't have an account? </span>
+            <span className="text-gray-600 dark:text-gray-400">Don&apos;t have an account? </span>
             <Link href="/sign-up" className="text-blue-600 hover:underline dark:text-blue-400">
               Sign up
             </Link>

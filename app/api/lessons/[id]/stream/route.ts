@@ -66,7 +66,7 @@ export async function GET(
                 setTimeout(() => {
                   try {
                     controller.close();
-                  } catch (e) {
+                  } catch {
                     // Controller already closed, that's fine
                   }
                   unsubscribe();
@@ -109,7 +109,7 @@ export async function GET(
                 setTimeout(() => {
                   try {
                     controller.close();
-                  } catch (e) {
+                  } catch {
                     // Controller already closed, that's fine
                   }
                   unsubscribe();
@@ -125,7 +125,7 @@ export async function GET(
             clearInterval(dbPollInterval);
             try {
               controller.close();
-            } catch (e) {
+            } catch {
               // Controller already closed, that's fine
             }
             unsubscribe();
@@ -141,13 +141,13 @@ export async function GET(
                 timestamp: Date.now(),
               })}\n\n`
             );
-          } catch (e) {
-            // Controller already closed, that's fine
+          } catch {
+            
           }
           try {
             controller.close();
-          } catch (e) {
-            // Controller already closed, that's fine
+          } catch {
+            
           }
         }
       },
