@@ -311,16 +311,22 @@ export const generateLessonFunction = inngest.createFunction(
             comment: `Code quality rated ${judgeEval.code_quality}/5 by LLM judge`
           });
 
-          langfuse.score({
-            traceId: result.traceId,
-            name: 'judge-overall-score',
-            value: judgeEval.overall_score,
-            comment: `Overall score: ${judgeEval.overall_score.toFixed(2)}/5. Reasoning: ${judgeEval.reasoning}`
-          });
+          const overallScore = typeof judgeEval.overall_score === 'number' && !isNaN(judgeEval.overall_score)
+            ? judgeEval.overall_score
+            : null;
+
+          if (overallScore !== null) {
+            langfuse.score({
+              traceId: result.traceId,
+              name: 'judge-overall-score',
+              value: overallScore,
+              comment: `Overall score: ${overallScore.toFixed(2)}/5. Reasoning: ${judgeEval.reasoning}`
+            });
+          }
 
           return {
             evaluated: true,
-            overallScore: judgeEval.overall_score,
+            overallScore,
             judgeScoresAdded: 6
           };
         } catch (error) {

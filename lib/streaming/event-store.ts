@@ -77,7 +77,7 @@ class StreamEventStore {
       setTimeout(() => {
         this.listeners.delete(event.lessonId);
         this.codeCache.delete(event.lessonId);
-      }, 1000); // Keep for 1 second after completion for any stragglers
+      }, 1000);
     }
   }
 
