@@ -70,8 +70,7 @@ export async function generateLessonWithStreaming(
 
   try {
     // Create streaming response from OpenAI using chat.completions.create with stream
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const stream = await (openai.chat.completions.stream as any)({
+    const stream = openai.chat.completions.stream({
       model: 'gpt-5',
       messages: [
         {
@@ -101,12 +100,16 @@ export async function generateLessonWithStreaming(
       }
     }
 
-    // Get final message for token counts
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const finalMessage = stream.finalMessage?.() as any;
-    if (finalMessage?.usage) {
-      inputTokens = finalMessage.usage.prompt_tokens || 0;
-      outputTokens = finalMessage.usage.completion_tokens || 0;
+    // Get final message for token counts from the stream object
+    if ('finalMessage' in stream && typeof stream.finalMessage === 'function') {
+      const finalMessage = stream.finalMessage() as unknown;
+      if (finalMessage && typeof finalMessage === 'object' && 'usage' in finalMessage) {
+        const usage = (finalMessage as Record<string, unknown>).usage as Record<string, unknown> | undefined;
+        if (usage && typeof usage === 'object') {
+          inputTokens = (usage.prompt_tokens as number) || 0;
+          outputTokens = (usage.completion_tokens as number) || 0;
+        }
+      }
     }
 
     // Clean up code

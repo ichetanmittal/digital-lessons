@@ -51,7 +51,7 @@ inngest/
 └── functions.ts                   # Background job: lesson generation
 
 migrations/
-└── 001_create_lessons.sql         # Database schema
+└── 001_create_lessons_safe.sql    # Database schema
 ```
 
 ## Key Features
