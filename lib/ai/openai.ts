@@ -1,15 +1,18 @@
 /**
- * OpenAI integration for lesson generation with Langfuse tracing
+ * OpenAI integration for lesson generation with Langfuse automatic instrumentation
  */
 
 import OpenAI from 'openai';
+import { observeOpenAI } from 'langfuse';
 import { createLessonPrompt, createValidationPrompt } from './prompts';
-import { getLangfuse } from '@/lib/tracing/langfuse';
 import type { LessonType } from '@/lib/types';
 
-const openai = new OpenAI({
+// Initialize OpenAI client with Langfuse automatic instrumentation
+const baseOpenAI = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+const openai = observeOpenAI(baseOpenAI);
 
 export interface GenerationResult {
   code: string;
@@ -42,42 +45,13 @@ export async function generateLesson(
   lessonType: LessonType = 'auto',
   generatedImages?: ImageData[]
 ): Promise<GenerationResult> {
-  const langfuse = getLangfuse();
-
-  // Create a trace for this generation (production pattern)
-  const trace = langfuse.trace({
-    name: 'lesson-generation',
-    userId: 'system',
-    input: {
-      outline,
-      lessonId,
-      hasImages: !!generatedImages && generatedImages.length > 0,
-    },
-    metadata: {
-      lessonId,
-      requestType: 'lesson-generation',
-      imageCount: generatedImages?.length || 0,
-    },
-    tags: ['openai', 'lesson-generation', 'education', 'with-images'],
-  });
-
   const prompt = createLessonPrompt(outline, lessonType, generatedImages?.map((img) => ({
     url: img.url,
     prompt: img.prompt,
   })));
 
-  // Start generation span
-  const generation = trace.generation({
-    name: 'openai-generate-lesson',
-    model: 'gpt-5',
-    modelParameters: {
-      reasoning_effort: 'low',
-      text_verbosity: 'low',
-    },
-    input: prompt,
-  });
-
   try {
+    // OpenAI call is automatically instrumented by Langfuse wrapper
     const result = await openai.responses.create({
       model: 'gpt-5',
       input: prompt,
@@ -104,32 +78,6 @@ export async function generateLesson(
       code = code.trim();
     }
 
-    // End generation span with success
-    generation.end({
-      output: code,
-      usage: {
-        input: result.usage?.input_tokens || 0,
-        output: result.usage?.output_tokens || 0,
-        total: (result.usage?.input_tokens || 0) + (result.usage?.output_tokens || 0),
-      },
-      statusMessage: 'success',
-    });
-
-    // Update trace with final result (production pattern)
-    trace.update({
-      output: {
-        success: true,
-        lessonId,
-        codeLength: code.length,
-        model: 'gpt-5',
-      },
-      metadata: {
-        totalTokens: (result.usage?.input_tokens || 0) + (result.usage?.output_tokens || 0),
-        inputTokens: result.usage?.input_tokens || 0,
-        outputTokens: result.usage?.output_tokens || 0,
-      },
-    });
-
     return {
       code,
       usage: {
@@ -137,26 +85,9 @@ export async function generateLesson(
         output_tokens: result.usage?.output_tokens || 0,
       },
       model: 'gpt-5',
-      traceId: trace.id,
+      traceId: `lesson-${lessonId}`, // For backward compatibility
     };
   } catch (error) {
-    // End generation span with error
-    generation.end({
-      statusMessage: 'error',
-      level: 'ERROR',
-    });
-
-    // Update trace with error (production pattern)
-    trace.update({
-      output: {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      },
-      metadata: {
-        errorType: error instanceof Error ? error.constructor.name : 'UnknownError',
-      },
-    });
-
     throw error;
   }
 }
@@ -172,39 +103,10 @@ export async function fixValidationErrors(
   errors: string[],
   lessonId?: string
 ): Promise<GenerationResult> {
-  const langfuse = getLangfuse();
-
-  // Create a trace for this fix operation
-  const trace = langfuse.trace({
-    name: 'lesson-validation-fix',
-    userId: 'system',
-    input: {
-      errors,
-      lessonId,
-      codeLength: code.length,
-    },
-    metadata: {
-      lessonId,
-      requestType: 'validation-fix',
-      errorCount: errors.length,
-    },
-    tags: ['openai', 'validation-fix', 'auto-fix'],
-  });
-
   const prompt = createValidationPrompt(code, errors);
 
-  // Start generation span
-  const generation = trace.generation({
-    name: 'openai-fix-validation',
-    model: 'gpt-5',
-    modelParameters: {
-      reasoning_effort: 'low', // low reasoning for fixing errors (faster)
-      text_verbosity: 'low',
-    },
-    input: prompt,
-  });
-
   try {
+    // OpenAI call is automatically instrumented by Langfuse wrapper
     const result = await openai.responses.create({
       model: 'gpt-5',
       input: prompt,
@@ -231,32 +133,6 @@ export async function fixValidationErrors(
       fixedCode = fixedCode.trim();
     }
 
-    // End generation span with success
-    generation.end({
-      output: fixedCode,
-      usage: {
-        input: result.usage?.input_tokens || 0,
-        output: result.usage?.output_tokens || 0,
-        total: (result.usage?.input_tokens || 0) + (result.usage?.output_tokens || 0),
-      },
-      statusMessage: 'success',
-    });
-
-    // Update trace with final result
-    trace.update({
-      output: {
-        success: true,
-        lessonId,
-        codeLength: fixedCode.length,
-        model: 'gpt-5',
-      },
-      metadata: {
-        totalTokens: (result.usage?.input_tokens || 0) + (result.usage?.output_tokens || 0),
-        inputTokens: result.usage?.input_tokens || 0,
-        outputTokens: result.usage?.output_tokens || 0,
-      },
-    });
-
     return {
       code: fixedCode,
       usage: {
@@ -264,26 +140,9 @@ export async function fixValidationErrors(
         output_tokens: result.usage?.output_tokens || 0,
       },
       model: 'gpt-5',
-      traceId: trace.id,
+      traceId: `validation-fix-${lessonId}`, // For backward compatibility
     };
   } catch (error) {
-    // End generation span with error
-    generation.end({
-      statusMessage: 'error',
-      level: 'ERROR',
-    });
-
-    // Update trace with error
-    trace.update({
-      output: {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      },
-      metadata: {
-        errorType: error instanceof Error ? error.constructor.name : 'UnknownError',
-      },
-    });
-
     throw error;
   }
 }

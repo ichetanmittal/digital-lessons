@@ -1,14 +1,18 @@
 /**
  * LLM-as-a-Judge evaluation for generated lessons
  * Uses OpenAI GPT-4 JSON mode for guaranteed valid JSON responses
+ * Uses Langfuse automatic instrumentation for tracing
  */
 
 import OpenAI from 'openai';
-import { getLangfuse } from '@/lib/tracing/langfuse';
+import { observeOpenAI } from 'langfuse';
 
-const openai = new OpenAI({
+// Initialize OpenAI client with Langfuse automatic instrumentation
+const baseOpenAI = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+const openai = observeOpenAI(baseOpenAI);
 
 export interface JudgeEvaluation {
   educational_quality: number; // 1-5 scale
@@ -81,43 +85,13 @@ Return a JSON object with the following exact field names and numeric ratings (1
 export async function evaluateLessonWithJudge(
   code: string,
   outline: string,
-  lessonId: string,
-  parentTraceId?: string
+  _lessonId?: string,
+  _parentTraceId?: string
 ): Promise<JudgeEvaluation> {
-  const langfuse = getLangfuse();
-
-  // Create a new trace for the judge evaluation
-  const trace = langfuse.trace({
-    name: 'lesson-judge-evaluation',
-    userId: 'system',
-    input: {
-      outline,
-      codeLength: code.length,
-      lessonId,
-    },
-    metadata: {
-      lessonId,
-      parentTraceId,
-      evaluationType: 'llm-as-a-judge-structured-outputs',
-    },
-    tags: ['evaluation', 'llm-judge', 'quality-check', 'structured-outputs'],
-  });
-
   const prompt = createJudgePrompt(code, outline);
 
-  // Start generation span
-  const generation = trace.generation({
-    name: 'openai-judge-evaluation-structured',
-    model: 'gpt-4.1',
-    modelParameters: {
-      temperature: 0.3, // lower temperature for consistent evaluation
-      response_format: 'json_object', // Use JSON mode for guaranteed valid JSON
-    },
-    input: prompt,
-  });
-
   try {
-    // Use OpenAI's JSON mode to enforce valid JSON output
+    // Use OpenAI's JSON mode to enforce valid JSON output - automatically instrumented by Langfuse wrapper
     const result = await openai.chat.completions.create({
       model: 'gpt-4.1',
       temperature: 0.3, // lower temperature for consistent evaluation
@@ -156,47 +130,8 @@ export async function evaluateLessonWithJudge(
       overall_score: overallScore,
     };
 
-    // End generation span with success
-    generation.end({
-      output: completeEvaluation,
-      usage: {
-        input: result.usage?.prompt_tokens || 0,
-        output: result.usage?.completion_tokens || 0,
-        total: (result.usage?.prompt_tokens || 0) + (result.usage?.completion_tokens || 0),
-      },
-      statusMessage: 'success',
-    });
-
-    // Update trace with evaluation results
-    trace.update({
-      output: {
-        success: true,
-        evaluation: completeEvaluation,
-      },
-      metadata: {
-        totalTokens:
-          (result.usage?.prompt_tokens || 0) + (result.usage?.completion_tokens || 0),
-        overallScore,
-        jsonMode: true,
-      },
-    });
-
     return completeEvaluation;
   } catch (error) {
-    // End generation span with error
-    generation.end({
-      statusMessage: 'error',
-      level: 'ERROR',
-    });
-
-    // Update trace with error
-    trace.update({
-      output: {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      },
-    });
-
     throw error;
   }
 }

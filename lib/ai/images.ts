@@ -2,15 +2,19 @@
  * AI Image Generation using OpenAI DALL-E 3
  * Generates educational images for lessons
  * Images are stored permanently in Supabase Storage to prevent URL expiration
+ * Uses Langfuse automatic instrumentation for tracing
  */
 
 import OpenAI from 'openai';
-import { getLangfuse } from '@/lib/tracing/langfuse';
+import { observeOpenAI } from 'langfuse';
 import { uploadImageToStorage } from './image-storage';
 
-const openai = new OpenAI({
+// Initialize OpenAI client with Langfuse automatic instrumentation
+const baseOpenAI = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+const openai = observeOpenAI(baseOpenAI);
 
 export interface GeneratedImage {
   url: string;
@@ -98,37 +102,8 @@ export async function generateImage(
   const size = options?.size || '1024x1024';
   const quality = options?.quality || 'standard';
 
-  const langfuse = getLangfuse();
-
-  // Create a trace for image generation
-  const trace = langfuse.trace({
-    name: 'image-generation',
-    userId: 'system',
-    input: {
-      prompt,
-      size,
-      quality,
-      lessonId,
-    },
-    metadata: {
-      requestType: 'image-generation',
-      lessonId,
-    },
-    tags: ['openai', 'dalle-3', 'image-generation'],
-  });
-
-  // Start generation span
-  const generation = trace.generation({
-    name: 'openai-dalle3-image',
-    model: 'dall-e-3',
-    modelParameters: {
-      size,
-      quality,
-    },
-    input: prompt,
-  });
-
   try {
+    // OpenAI call is automatically instrumented by Langfuse wrapper
     const response = await openai.images.generate({
       model: 'dall-e-3',
       prompt: prompt,
@@ -167,44 +142,9 @@ export async function generateImage(
       generatedAt: new Date().toISOString(),
     };
 
-    // End generation span with success
-    generation.end({
-      output: generatedImage,
-      statusMessage: 'success',
-    });
-
-    // Update trace
-    trace.update({
-      output: {
-        success: true,
-        url: permanentUrl,
-        revisedPrompt: imageData.revised_prompt,
-        isPermanentStorage: permanentUrl !== imageData.url,
-      },
-      metadata: {
-        imageSize: size,
-        storagePath: lessonId ? `${lessonId}/...` : 'temporary',
-      },
-    });
-
     return generatedImage;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error during image generation';
-
-    // End generation span with error
-    generation.end({
-      statusMessage: 'error',
-      level: 'ERROR',
-    });
-
-    // Update trace with error
-    trace.update({
-      output: {
-        success: false,
-        error: errorMessage,
-      },
-    });
-
     console.error('DALL-E 3 Image Generation Error:', errorMessage);
     throw error;
   }

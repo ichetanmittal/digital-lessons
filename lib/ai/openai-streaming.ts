@@ -1,11 +1,12 @@
 /**
  * Streaming OpenAI integration for real-time code generation
  * Emits code chunks as they're generated from OpenAI API
+ * Uses Langfuse automatic instrumentation for tracing
  */
 
 import OpenAI from 'openai';
+import { observeOpenAI } from 'langfuse';
 import { createLessonPrompt } from './prompts';
-import { getLangfuse } from '@/lib/tracing/langfuse';
 import { streamEventStore } from '@/lib/streaming/event-store';
 import type { LessonType } from '@/lib/types';
 
@@ -17,9 +18,12 @@ export interface ImageData {
   generatedAt: string;
 }
 
-const openai = new OpenAI({
+// Initialize OpenAI client with Langfuse automatic instrumentation
+const baseOpenAI = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+const openai = observeOpenAI(baseOpenAI);
 
 /**
  * Generate lesson with streaming - emits code chunks in real-time to frontend
@@ -30,8 +34,6 @@ export async function generateLessonWithStreaming(
   lessonType: LessonType = 'auto',
   generatedImages?: ImageData[]
 ): Promise<{ code: string; usage: { input_tokens: number; output_tokens: number }; model: string; traceId?: string }> {
-  const langfuse = getLangfuse();
-
   // Emit status event
   streamEventStore.emit({
     type: 'status',
@@ -41,35 +43,17 @@ export async function generateLessonWithStreaming(
     timestamp: Date.now(),
   });
 
-  const trace = langfuse.trace({
-    name: 'lesson-generation-streaming',
-    userId: 'system',
-    input: { outline, lessonId, hasImages: !!generatedImages?.length },
-    metadata: { lessonId, streaming: true },
-    tags: ['streaming', 'real-time'],
-  });
-
   const prompt = createLessonPrompt(outline, lessonType, generatedImages?.map((img) => ({
     url: img.url,
     prompt: img.prompt,
   })));
-
-  const generation = trace.generation({
-    name: 'openai-generate-streaming',
-    model: 'gpt-5',
-    modelParameters: {
-      reasoning_effort: 'low',
-      text_verbosity: 'low',
-    },
-    input: prompt,
-  });
 
   let fullCode = '';
   let inputTokens = 0;
   let outputTokens = 0;
 
   try {
-    // Create streaming response from OpenAI using chat.completions.create with stream
+    // Create streaming response from OpenAI - automatically instrumented by Langfuse wrapper
     const stream = openai.chat.completions.stream({
       model: 'gpt-5',
       messages: [
@@ -121,44 +105,15 @@ export async function generateLessonWithStreaming(
 
     console.log(`✅ Streaming complete for lesson ${lessonId} (${fullCode.length} chars)`);
 
-    generation.end({
-      output: fullCode,
-      usage: {
-        input: inputTokens,
-        output: outputTokens,
-        total: inputTokens + outputTokens,
-      },
-      statusMessage: 'success',
-    });
-
-    trace.update({
-      output: {
-        success: true,
-        codeLength: fullCode.length,
-      },
-      metadata: {
-        totalTokens: inputTokens + outputTokens,
-      },
-    });
-
     return {
       code: fullCode,
       usage: { input_tokens: inputTokens, output_tokens: outputTokens },
       model: 'gpt-5',
-      traceId: trace.id,
+      traceId: `streaming-${lessonId}`, // For backward compatibility
     };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
     console.error(`❌ Streaming error for lesson ${lessonId}:`, errorMsg);
-
-    generation.end({
-      statusMessage: 'error',
-      level: 'ERROR',
-    });
-
-    trace.update({
-      output: { success: false, error: errorMsg },
-    });
 
     // Emit error to frontend
     streamEventStore.emit({
