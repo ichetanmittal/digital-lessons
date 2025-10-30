@@ -13,20 +13,14 @@ import { signUp } from '@/lib/auth-utils';
 export function SignUpForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!email || !password || !confirmPassword) {
+    if (!email || !password) {
       toast.error('Please fill in all fields');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      toast.error('Passwords do not match');
       return;
     }
 
@@ -41,8 +35,8 @@ export function SignUpForm() {
 
       if (result.success) {
         toast.success(result.message || 'Account created successfully');
-        // Redirect to sign in
-        router.push('/sign-in');
+        // Redirect to home - user is now logged in
+        router.push('/');
       } else {
         toast.error(result.error || 'Sign up failed');
       }
@@ -81,18 +75,6 @@ export function SignUpForm() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              disabled={isLoading}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="confirm-password">Confirm Password</Label>
-            <Input
-              id="confirm-password"
-              type="password"
-              placeholder="••••••••"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
               disabled={isLoading}
             />
           </div>

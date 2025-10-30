@@ -17,7 +17,7 @@ export interface AuthResponse {
 }
 
 /**
- * Sign up a new user with email and password
+ * Sign up a new user with email and password and automatically log them in
  */
 export async function signUp(input: SignUpInput): Promise<AuthResponse> {
   try {
@@ -41,9 +41,29 @@ export async function signUp(input: SignUpInput): Promise<AuthResponse> {
       };
     }
 
+    // Auto-login the user after successful signup
+    const { data: sessionData, error: signInError } = await supabase.auth.signInWithPassword({
+      email: input.email,
+      password: input.password,
+    });
+
+    if (signInError) {
+      return {
+        success: false,
+        error: signInError.message,
+      };
+    }
+
+    if (!sessionData.session) {
+      return {
+        success: false,
+        error: 'Login failed',
+      };
+    }
+
     return {
       success: true,
-      message: 'Account created successfully. Please log in.',
+      message: 'Account created successfully. You are now logged in.',
     };
   } catch (err) {
     return {
