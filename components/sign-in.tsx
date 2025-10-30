@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,7 @@ export function SignInForm() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!email || !password) {
@@ -39,7 +39,7 @@ export function SignInForm() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [email, password, router]);
 
   return (
     <Card className="w-full max-w-md">

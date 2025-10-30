@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { ThemeSwitcher } from '@/components/theme-switcher';
@@ -16,7 +17,7 @@ export function Navbar({ className }: NavbarProps) {
   const { user } = useAuth();
   const router = useRouter();
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     const result = await signOut();
     if (result.success) {
       toast.success('Logged out successfully');
@@ -24,7 +25,7 @@ export function Navbar({ className }: NavbarProps) {
     } else {
       toast.error(result.error || 'Failed to log out');
     }
-  };
+  }, [router]);
 
   return (
     <nav className={cn(
