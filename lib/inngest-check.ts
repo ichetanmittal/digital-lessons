@@ -9,7 +9,11 @@ export async function checkInngestHealth(): Promise<boolean> {
       return response.ok;
     }
     return true;
-  } catch {
+  } catch (error) {
+    console.warn(
+      'Inngest health check failed:',
+      error instanceof Error ? error.message : 'Unknown error - Inngest dev server may not be running'
+    );
     return false;
   }
 }

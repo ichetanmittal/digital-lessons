@@ -68,11 +68,22 @@ const LessonsTableComponent = ({ initialLessons = [] }: LessonsTableProps) => {
           .select('*')
           .order('created_at', { ascending: false });
 
-        if (!error && data) {
+        if (error) {
+          console.error('Database error fetching lessons:', error.message);
+          toast.error('Failed to load lessons', {
+            description: 'Unable to fetch lessons from database. Please refresh the page.',
+          });
+        } else if (data) {
           setLessons(data as Lesson[]);
+        } else {
+          console.warn('No data returned from lessons query');
+          setLessons([]);
         }
       } catch (error) {
-        console.error('Error fetching lessons:', error);
+        console.error('Unexpected error fetching lessons:', error instanceof Error ? error.message : 'Unknown error');
+        toast.error('Failed to load lessons', {
+          description: 'An unexpected error occurred. Please refresh the page.',
+        });
       } finally {
         setIsLoading(false);
       }
@@ -142,15 +153,11 @@ const LessonsTableComponent = ({ initialLessons = [] }: LessonsTableProps) => {
   };
 
   const handleRowClick = useCallback((lesson: Lesson) => {
-    // Allow clicking on any lesson, regardless of status
-    // - 'generated': shows the rendered lesson
-    // - 'generating': shows real-time streaming code preview
-    // - 'failed': shows error message
     router.push(`/lessons/${lesson.id}`);
   }, [router]);
 
   const handleDeleteClick = useCallback((e: React.MouseEvent, lesson: Lesson) => {
-    e.stopPropagation(); // Prevent row click
+    e.stopPropagation();
     setLessonToDelete(lesson);
     setDeleteDialogOpen(true);
   }, []);
@@ -166,17 +173,31 @@ const LessonsTableComponent = ({ initialLessons = [] }: LessonsTableProps) => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete lesson');
+        let errorMessage = 'Failed to delete lesson';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          errorMessage = response.statusText || errorMessage;
+        }
+
+        if (response.status === 404) {
+          errorMessage = 'Lesson not found. It may have already been deleted.';
+        } else if (response.status === 403) {
+          errorMessage = 'You do not have permission to delete this lesson.';
+        }
+
+        throw new Error(errorMessage);
       }
 
-      // Optimistically remove from UI (real-time will handle it too)
       setLessons((prev) => prev.filter((l) => l.id !== lessonToDelete.id));
       setDeleteDialogOpen(false);
       toast.success('Lesson deleted successfully');
     } catch (error) {
-      console.error('Error deleting lesson:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      console.error('Error deleting lesson:', errorMessage);
       toast.error('Failed to delete lesson', {
-        description: 'Please try again.',
+        description: errorMessage,
       });
     } finally {
       setDeletingId(null);
@@ -192,12 +213,10 @@ const LessonsTableComponent = ({ initialLessons = [] }: LessonsTableProps) => {
     const diffInHours = Math.floor(diffInMinutes / 60);
     const diffInDays = Math.floor(diffInHours / 24);
 
-    // Less than 1 minute
     if (diffInSeconds < 60) {
       return 'Just now';
     }
 
-    // Less than 1 hour
     if (diffInMinutes < 60) {
       return `${diffInMinutes} ${diffInMinutes === 1 ? 'minute' : 'minutes'} ago`;
     }

@@ -23,14 +23,33 @@ export async function GET(
       );
     }
 
-    const lesson = await getUserLessonById(id, true);
+    let lesson;
+    try {
+      lesson = await getUserLessonById(id, true);
+    } catch (dbError) {
+      console.error(`Failed to fetch lesson ${id} from database:`, dbError);
+      const errorMessage = dbError instanceof Error ? dbError.message : 'Unknown error';
+      if (errorMessage.toLowerCase().includes('not found') || errorMessage.toLowerCase().includes('no rows')) {
+        return NextResponse.json(
+          { error: 'Lesson not found' },
+          { status: 404 }
+        );
+      } else if (errorMessage.toLowerCase().includes('auth') || errorMessage.toLowerCase().includes('permission')) {
+        return NextResponse.json(
+          { error: 'Access denied' },
+          { status: 403 }
+        );
+      } else {
+        throw dbError;
+      }
+    }
 
     return NextResponse.json({ lesson }, { status: 200 });
   } catch (error) {
     console.error('Error fetching lesson:', error);
     return NextResponse.json(
-      { error: 'Lesson not found or access denied' },
-      { status: 404 }
+      { error: 'Failed to fetch lesson' },
+      { status: 500 }
     );
   }
 }
@@ -53,7 +72,25 @@ export async function DELETE(
       );
     }
 
-    await deleteUserLesson(id, true);
+    try {
+      await deleteUserLesson(id, true);
+    } catch (dbError) {
+      console.error(`Failed to delete lesson ${id}:`, dbError);
+      const errorMessage = dbError instanceof Error ? dbError.message : 'Unknown error';
+      if (errorMessage.toLowerCase().includes('not found') || errorMessage.toLowerCase().includes('no rows')) {
+        return NextResponse.json(
+          { error: 'Lesson not found' },
+          { status: 404 }
+        );
+      } else if (errorMessage.toLowerCase().includes('auth') || errorMessage.toLowerCase().includes('permission')) {
+        return NextResponse.json(
+          { error: 'Access denied' },
+          { status: 403 }
+        );
+      } else {
+        throw dbError;
+      }
+    }
 
     return NextResponse.json(
       { message: 'Lesson deleted successfully' },

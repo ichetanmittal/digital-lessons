@@ -25,8 +25,20 @@ export async function GET() {
  * Create a new lesson for authenticated user and trigger background generation with Inngest
  */
 export async function POST(request: NextRequest) {
+  let body: Record<string, unknown>;
+
+  // Step 0: Parse and validate request body
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch (parseError) {
+    console.error('Failed to parse request body:', parseError);
+    return NextResponse.json(
+      { error: 'Invalid JSON in request body' },
+      { status: 400 }
+    );
+  }
+
+  try {
     const { outline, generateImages = true } = body;
 
     // Validation
@@ -45,7 +57,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 1: Check if Inngest is running BEFORE creating lesson
-    const isInngestHealthy = await checkInngestHealth();
+    let isInngestHealthy: boolean;
+    try {
+      isInngestHealthy = await checkInngestHealth();
+    } catch (healthError) {
+      console.error('Failed to check Inngest health:', healthError);
+      return NextResponse.json(
+        {
+          error: 'Failed to check Inngest service status',
+          message: 'Unable to verify service availability. Please try again.',
+        },
+        { status: 503 }
+      );
+    }
 
     if (!isInngestHealthy) {
       console.error('❌ Inngest dev server is not running. Please start it with: bunx inngest-cli@latest dev');
@@ -59,7 +83,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 2: Create lesson record with 'generating' status for authenticated user
-    const lesson = await createUserLesson({ outline }, true);
+    let lesson;
+    try {
+      lesson = await createUserLesson({ outline }, true);
+    } catch (createError) {
+      console.error('Failed to create lesson in database:', createError);
+      return NextResponse.json(
+        { error: 'Failed to create lesson record' },
+        { status: 500 }
+      );
+    }
 
     // Step 3: Send event to Inngest for background processing (with optional image generation)
     try {
@@ -89,14 +122,18 @@ export async function POST(request: NextRequest) {
       // If Inngest send fails (unexpected, since we checked health), update lesson to failed status
       console.error('Failed to send event to Inngest:', inngestError);
 
-      await updateUserLesson(
-        lesson.id,
-        {
-          status: 'failed',
-          error_message: 'Inngest service is not available. Please ensure Inngest dev server is running.',
-        },
-        true
-      );
+      try {
+        await updateUserLesson(
+          lesson.id,
+          {
+            status: 'failed',
+            error_message: 'Inngest service is not available. Please ensure Inngest dev server is running.',
+          },
+          true
+        );
+      } catch (updateError) {
+        console.error('Failed to update lesson status after Inngest error:', updateError);
+      }
 
       return NextResponse.json(
         {
@@ -107,7 +144,7 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error) {
-    console.error('Error creating lesson:', error);
+    console.error('Unexpected error creating lesson:', error);
 
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to create lesson' },

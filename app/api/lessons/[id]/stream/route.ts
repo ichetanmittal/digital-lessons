@@ -94,29 +94,39 @@ export async function GET(
                 clearInterval(dbPollInterval);
 
                 // Only send complete if we haven't already
-                controller.enqueue(
-                  `data: ${JSON.stringify({
-                    type: 'complete',
-                    lessonId: id,
-                    status: updated.status,
-                    code: updated.generated_code || '',
-                    error: updated.error_message,
-                    timestamp: Date.now(),
-                  })}\n\n`
-                );
+                try {
+                  controller.enqueue(
+                    `data: ${JSON.stringify({
+                      type: 'complete',
+                      lessonId: id,
+                      status: updated.status,
+                      code: updated.generated_code || '',
+                      error: updated.error_message,
+                      timestamp: Date.now(),
+                    })}\n\n`
+                  );
+                } catch (enqueueError) {
+                  if (enqueueError instanceof Error && enqueueError.message.includes('closed')) {
+                    console.log(`Stream already closed, skipping final enqueue for lesson ${id}`);
+                  } else {
+                    console.error('Error sending completion event:', enqueueError);
+                  }
+                }
 
                 isClosed = true;
                 setTimeout(() => {
                   try {
                     controller.close();
-                  } catch {
+                  } catch (closeError) {
                     // Controller already closed, that's fine
+                    console.debug('Controller close error (expected if already closed):', closeError instanceof Error ? closeError.message : 'Unknown');
                   }
                   unsubscribe();
                 }, 500);
               }
             } catch (error) {
-              console.error('Error polling DB:', error);
+              console.error(`Error polling DB for lesson ${id}:`, error instanceof Error ? error.message : 'Unknown error');
+              // Don't fail the stream, just log and continue polling
             }
           }, 2000);
 
@@ -125,13 +135,13 @@ export async function GET(
             clearInterval(dbPollInterval);
             try {
               controller.close();
-            } catch {
-              // Controller already closed, that's fine
+            } catch (closeError) {
+              console.debug('Stream timeout close error (expected if already closed):', closeError instanceof Error ? closeError.message : 'Unknown');
             }
             unsubscribe();
           }, 30 * 60 * 1000);
         } catch (error) {
-          console.error('Stream error:', error);
+          console.error('Stream initialization error:', error);
           try {
             controller.enqueue(
               `data: ${JSON.stringify({
@@ -141,13 +151,13 @@ export async function GET(
                 timestamp: Date.now(),
               })}\n\n`
             );
-          } catch {
-            
+          } catch (enqueueError) {
+            console.error('Failed to send error event to client:', enqueueError instanceof Error ? enqueueError.message : 'Unknown error');
           }
           try {
             controller.close();
-          } catch {
-            
+          } catch (closeError) {
+            console.debug('Error closing controller after stream error:', closeError instanceof Error ? closeError.message : 'Unknown');
           }
         }
       },
