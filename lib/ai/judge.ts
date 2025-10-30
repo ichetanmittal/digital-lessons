@@ -1,29 +1,34 @@
 /**
  * LLM-as-a-Judge evaluation for generated lessons
- * Uses OpenAI GPT-4 JSON mode for guaranteed valid JSON responses
+ * Uses OpenAI Structured Outputs for guaranteed valid and schema-compliant responses
  */
 
 import OpenAI from 'openai';
+import { z } from 'zod';
 import { getLangfuse } from '@/lib/tracing/langfuse';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export interface JudgeEvaluation {
-  educational_quality: number; // 1-5 scale
-  age_appropriateness: number; // 1-5 scale
-  engagement_level: number; // 1-5 scale
-  accessibility_compliance: number; // 1-5 scale
-  code_quality: number; // 1-5 scale
+// Define schema for structured outputs
+const JudgeEvaluationSchema = z.object({
+  educational_quality: z.number().int().min(1).max(5),
+  age_appropriateness: z.number().int().min(1).max(5),
+  engagement_level: z.number().int().min(1).max(5),
+  accessibility_compliance: z.number().int().min(1).max(5),
+  code_quality: z.number().int().min(1).max(5),
+  reasoning: z.string(),
+});
+
+export interface JudgeEvaluation extends z.infer<typeof JudgeEvaluationSchema> {
   overall_score: number; // Average of above
-  reasoning: string;
 }
 
 /**
  * Create evaluation prompt for LLM judge
- * Note: Response format enforces JSON output from the model
- * Expected JSON fields: educational_quality, age_appropriateness, engagement_level, accessibility_compliance, code_quality, reasoning
+ * Note: Response format is controlled by structured outputs (json_schema)
+ * The model will return a JSON object matching the defined schema
  */
 function createJudgePrompt(code: string, outline: string): string {
   return `You are an expert educational content evaluator. Your task is to evaluate a React lesson component designed for students aged 8-14.
@@ -63,20 +68,12 @@ Evaluate this lesson on the following dimensions (rate each 1-5, where 5 is exce
    - Are there proper type annotations?
    - Is it following React best practices?
 
-Return a JSON object with the following exact field names and numeric ratings (1-5) for each dimension, plus a brief reasoning (2-3 sentences):
-{
-  "educational_quality": <number 1-5>,
-  "age_appropriateness": <number 1-5>,
-  "engagement_level": <number 1-5>,
-  "accessibility_compliance": <number 1-5>,
-  "code_quality": <number 1-5>,
-  "reasoning": "<string with 2-3 sentences>"
-}`;
+Provide your evaluation as a structured JSON response with numeric ratings (1-5) for each dimension and a brief reasoning (2-3 sentences).`;
 }
 
 /**
- * Evaluate a generated lesson using OpenAI JSON mode
- * Enforces JSON output format for guaranteed valid JSON responses
+ * Evaluate a generated lesson using OpenAI Structured Outputs
+ * Guarantees schema-compliant JSON responses with strict validation
  */
 export async function evaluateLessonWithJudge(
   code: string,
@@ -107,20 +104,20 @@ export async function evaluateLessonWithJudge(
 
   // Start generation span
   const generation = trace.generation({
-    name: 'openai-judge-evaluation-structured',
+    name: 'openai-judge-evaluation-structured-outputs',
     model: 'gpt-4.1',
     modelParameters: {
-      temperature: 0.3, // lower temperature for consistent evaluation
-      response_format: 'json_object', // Use JSON mode for guaranteed valid JSON
+      temperature: 0.3,
+      response_format: 'json_schema',
     },
     input: prompt,
   });
 
   try {
-    // Use OpenAI's JSON mode to enforce valid JSON output
     const result = await openai.chat.completions.create({
       model: 'gpt-4.1',
-      temperature: 0.3, // lower temperature for consistent evaluation
+      temperature: 0.3,
+      stream: false,
       messages: [
         {
           role: 'user',
@@ -128,7 +125,59 @@ export async function evaluateLessonWithJudge(
         },
       ],
       response_format: {
-        type: 'json_object' as const,
+        type: 'json_schema',
+        json_schema: {
+          name: 'JudgeEvaluation',
+          schema: {
+            type: 'object',
+            properties: {
+              educational_quality: {
+                type: 'integer',
+                description: 'Educational quality score from 1-5',
+                minimum: 1,
+                maximum: 5,
+              },
+              age_appropriateness: {
+                type: 'integer',
+                description: 'Age appropriateness score from 1-5',
+                minimum: 1,
+                maximum: 5,
+              },
+              engagement_level: {
+                type: 'integer',
+                description: 'Engagement level score from 1-5',
+                minimum: 1,
+                maximum: 5,
+              },
+              accessibility_compliance: {
+                type: 'integer',
+                description: 'Accessibility compliance score from 1-5',
+                minimum: 1,
+                maximum: 5,
+              },
+              code_quality: {
+                type: 'integer',
+                description: 'Code quality score from 1-5',
+                minimum: 1,
+                maximum: 5,
+              },
+              reasoning: {
+                type: 'string',
+                description: 'Brief reasoning for the evaluation (2-3 sentences)',
+              },
+            },
+            required: [
+              'educational_quality',
+              'age_appropriateness',
+              'engagement_level',
+              'accessibility_compliance',
+              'code_quality',
+              'reasoning',
+            ],
+            additionalProperties: false,
+          },
+          strict: true,
+        },
       },
     });
 
@@ -136,11 +185,10 @@ export async function evaluateLessonWithJudge(
       throw new Error('No content in OpenAI evaluation response');
     }
 
-    // Parse the guaranteed-valid JSON response
-    const evaluation = JSON.parse(result.choices[0].message.content) as Omit<
-      JudgeEvaluation,
-      'overall_score'
-    >;
+    // Parse the guaranteed-valid and schema-compliant JSON response
+    const evaluation = JudgeEvaluationSchema.parse(
+      JSON.parse(result.choices[0].message.content)
+    );
 
     // Calculate overall score from the 5 dimensions
     const overallScore = (
@@ -177,7 +225,8 @@ export async function evaluateLessonWithJudge(
         totalTokens:
           (result.usage?.prompt_tokens || 0) + (result.usage?.completion_tokens || 0),
         overallScore,
-        jsonMode: true,
+        structuredOutputs: true,
+        schemaValidated: true,
       },
     });
 
