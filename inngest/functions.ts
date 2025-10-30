@@ -17,7 +17,7 @@ import { generateLessonImages, type GeneratedImage } from "@/lib/ai/images";
 export const generateLessonFunction = inngest.createFunction(
   {
     id: "generate-lesson",
-    name: "Generate Lesson with Claude AI",
+    name: "Generate Lesson with OpenAI",
     retries: 3,
     onFailure: async ({ event, error }) => {
       // Update lesson status to failed when all retries are exhausted

@@ -1,18 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 
-export function LessonForm() {
+const LessonFormComponent = () => {
   const [outline, setOutline] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [generateImages, setGenerateImages] = useState(true);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -76,7 +76,7 @@ export function LessonForm() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [outline, generateImages]);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -138,4 +138,6 @@ export function LessonForm() {
       </div>
     </form>
   );
-}
+};
+
+export const LessonForm = memo(LessonFormComponent);

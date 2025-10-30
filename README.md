@@ -9,7 +9,6 @@ AI-powered platform that generates interactive TypeScript/React lessons from sim
 - **Next.js 15** - Full-stack React framework with App Router
 - **TypeScript** - Type-safe development
 - **Supabase** - PostgreSQL database with real-time subscriptions
-- **Claude 3.5 Sonnet** - AI lesson generation via Anthropic API
 - **Inngest** - Background job orchestration for async lesson generation
 - **Langfuse** - LLM observability and tracing
 - **Sandpack** - Browser-based code execution and rendering
@@ -37,7 +36,6 @@ components/
 
 lib/
 ├── ai/
-│   ├── claude.ts                  # Claude API integration + Langfuse tracing
 │   ├── prompts.ts                 # AI prompt templates
 │   └── validator.ts               # TypeScript compilation validation
 ├── supabase/
@@ -56,7 +54,7 @@ migrations/
 
 ## Key Features
 
-- **AI Generation** - Claude generates complete React components from text outlines
+- **AI Generation** - OpenAI generates complete React components from text outlines
 - **Type Safety** - Full TypeScript compilation validation before saving
 - **Real-time Updates** - Supabase subscriptions update UI without refresh
 - **Background Jobs** - Inngest handles long-running AI generation
@@ -68,7 +66,7 @@ migrations/
 1. User enters lesson outline (e.g., "10 question quiz on planets")
 2. API creates database record with "generating" status
 3. Inngest background job triggers:
-   - Calls Claude API with structured prompt
+   - Calls OpenAI API with structured prompt
    - Validates generated TypeScript code (compilation + security)
    - Saves to database with "generated" status
 4. Real-time subscription updates UI automatically

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -31,7 +31,7 @@ interface LessonsTableProps {
 
 const ITEMS_PER_PAGE = 10;
 
-export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
+const LessonsTableComponent = ({ initialLessons = [] }: LessonsTableProps) => {
   const [lessons, setLessons] = useState<Lesson[]>(initialLessons);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -41,10 +41,16 @@ export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
   const router = useRouter();
   const supabase = createClient();
 
-  const totalPages = Math.ceil(lessons.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const currentLessons = lessons.slice(startIndex, endIndex);
+  // Memoize pagination calculations
+  const { totalPages, currentLessons } = useMemo(() => {
+    const total = Math.ceil(lessons.length / ITEMS_PER_PAGE);
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const end = start + ITEMS_PER_PAGE;
+    return {
+      totalPages: total,
+      currentLessons: lessons.slice(start, end),
+    };
+  }, [lessons, currentPage]);
 
   // Reset to page 1 if current page is out of bounds
   useEffect(() => {
@@ -135,21 +141,21 @@ export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
     );
   };
 
-  const handleRowClick = (lesson: Lesson) => {
+  const handleRowClick = useCallback((lesson: Lesson) => {
     // Allow clicking on any lesson, regardless of status
     // - 'generated': shows the rendered lesson
     // - 'generating': shows real-time streaming code preview
     // - 'failed': shows error message
     router.push(`/lessons/${lesson.id}`);
-  };
+  }, [router]);
 
-  const handleDeleteClick = (e: React.MouseEvent, lesson: Lesson) => {
+  const handleDeleteClick = useCallback((e: React.MouseEvent, lesson: Lesson) => {
     e.stopPropagation(); // Prevent row click
     setLessonToDelete(lesson);
     setDeleteDialogOpen(true);
-  };
+  }, []);
 
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = useCallback(async () => {
     if (!lessonToDelete) return;
 
     setDeletingId(lessonToDelete.id);
@@ -176,9 +182,9 @@ export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
       setDeletingId(null);
       setLessonToDelete(null);
     }
-  };
+  }, [lessonToDelete]);
 
-  const formatDate = (dateString: string) => {
+  const formatDate = useCallback((dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
@@ -212,7 +218,7 @@ export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
       day: 'numeric',
       year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
     });
-  };
+  }, []);
 
   if (isLoading && lessons.length === 0) {
     return (
@@ -438,4 +444,6 @@ export function LessonsTable({ initialLessons = [] }: LessonsTableProps) {
       </Dialog>
     </div>
   );
-}
+};
+
+export const LessonsTable = memo(LessonsTableComponent);

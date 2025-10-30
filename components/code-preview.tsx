@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, memo } from 'react';
 
 interface CodePreviewProps {
   code: string;
@@ -10,7 +10,7 @@ interface CodePreviewProps {
   title?: string;
 }
 
-export function CodePreview({ code, isStreaming, status, error, title }: CodePreviewProps) {
+const CodePreviewComponent = ({ code, isStreaming, status, error, title }: CodePreviewProps) => {
   const [hoveredCode, setHoveredCode] = useState(false);
   const codeContainerRef = useRef<HTMLDivElement>(null);
   const userScrolledUp = useRef(false);
@@ -26,11 +26,11 @@ export function CodePreview({ code, isStreaming, status, error, title }: CodePre
     }
   }, [code, isStreaming]);
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
     const isAtBottom = target.scrollHeight - target.scrollTop - target.clientHeight < 100;
     userScrolledUp.current = !isAtBottom;
-  };
+  }, []);
 
   return (
     <div className="w-full h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
@@ -156,4 +156,6 @@ export function CodePreview({ code, isStreaming, status, error, title }: CodePre
       </div>
     </div>
   );
-}
+};
+
+export const CodePreview = memo(CodePreviewComponent);

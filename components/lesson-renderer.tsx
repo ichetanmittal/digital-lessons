@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { SandpackProvider, SandpackPreview } from '@codesandbox/sandpack-react';
 
 interface LessonRendererProps {
@@ -7,7 +8,7 @@ interface LessonRendererProps {
   title: string;
 }
 
-export function LessonRenderer({ code, title }: LessonRendererProps) {
+const LessonRendererComponent = ({ code, title }: LessonRendererProps) => {
   return (
     <div className="w-full min-h-screen flex flex-col">
       <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
@@ -55,4 +56,6 @@ export function LessonRenderer({ code, title }: LessonRendererProps) {
       </div>
     </div>
   );
-}
+};
+
+export const LessonRenderer = memo(LessonRendererComponent);
